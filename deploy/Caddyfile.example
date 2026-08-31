@@ -1,0 +1,5 @@
+# Add this as a separate site/import. Do not replace existing Caddy sites.
+xeditor.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:5701
+}

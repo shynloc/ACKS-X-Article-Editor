@@ -1,0 +1,416 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "X OpenAPI 2.168 snapshot, retrieved 2026-08-31; official schema does not imply account entitlement or rendering verification.",
+  "$ref": "#/definitions/ArticleCreateDraftRequest",
+  "definitions": {
+    "ArticleCreateDraftRequest": {
+      "type": "object",
+      "description": "Create a draft Article.",
+      "required": [
+        "title",
+        "content_state"
+      ],
+      "properties": {
+        "content_state": {
+          "description": "DraftJS content state representing the article body. Special formatting          (markdown/code/tables, dividers, LaTeX, emoji, images, embedded posts) uses atomic          blocks with entity_ranges pointing into entities.",
+          "$ref": "#/definitions/ArticleCreateDraftContentState"
+        },
+        "cover_media": {
+          "description": "Optional cover media for the Article.",
+          "$ref": "#/definitions/ArticleCreateDraftCoverMedia"
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the Article.",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentState": {
+      "type": "object",
+      "required": [
+        "blocks",
+        "entities"
+      ],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "description": "The text blocks that make up the article body.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocks"
+          }
+        },
+        "entities": {
+          "type": "array",
+          "description": "Non-text entities referenced by blocks (links, embedded posts, images, emoji,          markdown/code/tables, dividers, LaTeX). Full set matches article storage.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateEntities"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocks": {
+      "type": "object",
+      "required": [
+        "text",
+        "type"
+      ],
+      "properties": {
+        "data": {
+          "description": "Block-level metadata for mentions, hashtags, cashtags, and URLs.",
+          "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksData"
+        },
+        "entity_ranges": {
+          "type": "array",
+          "description": "References to entries in entities.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksEntityRanges"
+          }
+        },
+        "inline_style_ranges": {
+          "type": "array",
+          "description": "Inline formatting ranges.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksInlineStyleRanges"
+          }
+        },
+        "key": {
+          "type": "string",
+          "description": "Optional block key."
+        },
+        "text": {
+          "type": "string",
+          "description": "The text content of this block. For latex entities, this holds the LaTeX source;          for divider/markdown/image/post atomic placeholders, typically a single space."
+        },
+        "type": {
+          "type": "string",
+          "description": "The block type. Use atomic for non-text embeds (image, post, markdown, divider, latex).",
+          "enum": [
+            "unstyled",
+            "header-one",
+            "header-two",
+            "header-three",
+            "unordered-list-item",
+            "ordered-list-item",
+            "blockquote",
+            "atomic"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksData": {
+      "type": "object",
+      "properties": {
+        "cashtags": {
+          "type": "array",
+          "description": "Cashtag spans in this block.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksDataCashtags"
+          }
+        },
+        "hashtags": {
+          "type": "array",
+          "description": "Hashtag spans in this block.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksDataHashtags"
+          }
+        },
+        "mentions": {
+          "type": "array",
+          "description": "Mention spans in this block.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksDataMentions"
+          }
+        },
+        "urls": {
+          "type": "array",
+          "description": "URL spans in this block.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateBlocksDataUrls"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksDataCashtags": {
+      "type": "object",
+      "required": [
+        "from_index",
+        "to_index",
+        "text"
+      ],
+      "properties": {
+        "from_index": {
+          "type": "integer",
+          "description": "Start index of the tagged span.",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string",
+          "description": "The tagged text."
+        },
+        "to_index": {
+          "type": "integer",
+          "description": "End index of the tagged span.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksDataHashtags": {
+      "type": "object",
+      "required": [
+        "from_index",
+        "to_index",
+        "text"
+      ],
+      "properties": {
+        "from_index": {
+          "type": "integer",
+          "description": "Start index of the tagged span.",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string",
+          "description": "The tagged text."
+        },
+        "to_index": {
+          "type": "integer",
+          "description": "End index of the tagged span.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksDataMentions": {
+      "type": "object",
+      "required": [
+        "from_index",
+        "to_index",
+        "text"
+      ],
+      "properties": {
+        "from_index": {
+          "type": "integer",
+          "description": "Start index of the tagged span.",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string",
+          "description": "The tagged text."
+        },
+        "to_index": {
+          "type": "integer",
+          "description": "End index of the tagged span.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksDataUrls": {
+      "type": "object",
+      "required": [
+        "from_index",
+        "to_index",
+        "text"
+      ],
+      "properties": {
+        "from_index": {
+          "type": "integer",
+          "description": "Start index of the tagged span.",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string",
+          "description": "The tagged text."
+        },
+        "to_index": {
+          "type": "integer",
+          "description": "End index of the tagged span.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksEntityRanges": {
+      "type": "object",
+      "required": [
+        "key",
+        "offset",
+        "length"
+      ],
+      "properties": {
+        "key": {
+          "type": "integer",
+          "description": "Index into the entities array.",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "description": "Length of the entity range.",
+          "minimum": 0
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Start offset in the text.",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateBlocksInlineStyleRanges": {
+      "type": "object",
+      "required": [
+        "offset",
+        "length",
+        "style"
+      ],
+      "properties": {
+        "length": {
+          "type": "integer",
+          "description": "Length of the styled range.",
+          "minimum": 0
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Start offset in the text.",
+          "minimum": 0
+        },
+        "style": {
+          "type": "string",
+          "description": "The inline style.",
+          "enum": [
+            "bold",
+            "italic",
+            "strikethrough"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateEntities": {
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "The entity key referenced by entity_ranges."
+        },
+        "value": {
+          "$ref": "#/definitions/ArticleCreateDraftContentStateEntitiesValue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateEntitiesValue": {
+      "type": "object",
+      "required": [
+        "type",
+        "mutability",
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "description": "Entity payload. Fields depend on the entity type: post_id (post), url (link),          media_items (image), entity_key (emoji and other opaque keys), markdown (markdown /          code blocks / GFM tables). divider and latex use an empty data object; latex source          is the block text; emoji uses block text for the character(s). There is no separate          table entity type in article storage; tables are markdown.",
+          "$ref": "#/definitions/ArticleCreateDraftContentStateEntitiesValueData"
+        },
+        "mutability": {
+          "type": "string",
+          "description": "Whether the entity can be edited. Recommended: immutable for post, image, divider, latex; mutable for link and markdown (matches the in-app Articles composer).",
+          "enum": [
+            "immutable",
+            "mutable",
+            "segmented"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "description": "The entity type. markdown carries code blocks, GFM tables, and other Markdown;          emoji maps to backend TWEMOJI (Twemoji is internal); divider is a horizontal rule;          latex renders TeX from the block text. Tables are not a separate enum value — use          type markdown with a pipe table in data.markdown.",
+          "enum": [
+            "post",
+            "link",
+            "image",
+            "emoji",
+            "markdown",
+            "divider",
+            "latex"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateEntitiesValueData": {
+      "type": "object",
+      "properties": {
+        "caption": {
+          "type": "string",
+          "description": "Caption text."
+        },
+        "entity_key": {
+          "type": "string",
+          "description": "Opaque entity key. Used with type emoji (and reserved for other keyed embeds) to match in-app Articles composer payloads."
+        },
+        "markdown": {
+          "type": "string",
+          "description": "Markdown body for type markdown. Use fenced code blocks (```lang ... ```) for code. Max weighted length is enforced by the Articles backend (10,000 per article)."
+        },
+        "media_items": {
+          "type": "array",
+          "description": "Media keys. Used with type image.",
+          "items": {
+            "$ref": "#/definitions/ArticleCreateDraftContentStateEntitiesValueDataMediaItems"
+          }
+        },
+        "post_id": {
+          "type": "string",
+          "description": "The ID of the post to embed. Used with type post."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL. Used with type link."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftContentStateEntitiesValueDataMediaItems": {
+      "type": "object",
+      "required": [
+        "media_category",
+        "media_id"
+      ],
+      "properties": {
+        "media_category": {
+          "type": "string"
+        },
+        "media_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArticleCreateDraftCoverMedia": {
+      "type": "object",
+      "required": [
+        "media_category",
+        "media_id"
+      ],
+      "properties": {
+        "media_category": {
+          "type": "string",
+          "description": "The media category (e.g. tweet_image)."
+        },
+        "media_id": {
+          "type": "string",
+          "description": "The media ID from the media upload endpoint."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

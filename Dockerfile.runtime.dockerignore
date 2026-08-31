@@ -1,0 +1,7 @@
+*
+!Dockerfile.runtime
+!deploy/
+!deploy/nginx.conf
+!dist/
+!dist/client/
+!dist/client/**

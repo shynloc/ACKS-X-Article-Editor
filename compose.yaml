@@ -1,0 +1,25 @@
+name: acks-x-article-editor
+services:
+  editor:
+    image: ${EDITOR_IMAGE:-acks-x-article-editor:local}
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${EDITOR_PORT:-5701}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 1.0
+    environment:
+      NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE: "1"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

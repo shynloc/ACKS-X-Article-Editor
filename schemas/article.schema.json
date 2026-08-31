@@ -1,0 +1,139 @@
+{
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "id",
+    "revision",
+    "title",
+    "body",
+    "assets",
+    "createdAt",
+    "updatedAt"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,100}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 20000
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 2097152
+    },
+    "coverId": {
+      "type": "string"
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "mime",
+          "filename",
+          "byteLength",
+          "sha256",
+          "width",
+          "height",
+          "alt",
+          "caption"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,100}$"
+          },
+          "kind": {
+            "enum": [
+              "image",
+              "cover",
+              "table_png",
+              "code_png"
+            ]
+          },
+          "mime": {
+            "enum": [
+              "image/png",
+              "image/jpeg",
+              "image/webp"
+            ]
+          },
+          "filename": {
+            "type": "string",
+            "maxLength": 250
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20971520
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40000
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40000
+          },
+          "alt": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 2097152
+          },
+          "renderKey": {
+            "type": "string"
+          },
+          "sourceAssetId": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "lastExportRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "lastExportAt": {
+      "type": "string"
+    },
+    "archived": {
+      "type": "boolean"
+    },
+    "deletedAt": {
+      "type": "string"
+    }
+  }
+}

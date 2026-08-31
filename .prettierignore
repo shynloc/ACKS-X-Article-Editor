@@ -1,0 +1,5 @@
+node_modules
+dist
+.local
+pnpm-lock.yaml
+src/core/article-validator.js

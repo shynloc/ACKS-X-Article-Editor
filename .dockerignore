@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.local
+docs
+tests
+!tests/sites-worker.test.mjs
+playwright-report
+test-results
+*.log
+.env*
+public/assets/writing-cover.png
