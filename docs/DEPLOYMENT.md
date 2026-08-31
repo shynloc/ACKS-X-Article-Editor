@@ -34,6 +34,8 @@
 
 ## 故障定位
 
+本次使用 Cloudflare 代理。新站点限定 ACME HTTP-01 验证（`issuer acme { disable_tlsalpn_challenge }`），因为代理不透传 TLS-ALPN 挑战。曾出现证书机构 CAA 查询超时及证书下载 404；未修改 DNS 或降低 TLS 安全模式，后续正常签发。
+
 - 双击源码 HTML 空白：使用 HTTP 服务入口，不能用 `file://` 运行 Vite 源码。
 - 525：分别检查 Cloudflare 到源站 TLS、Caddy 站点证书和域名对应关系，不能只看容器健康。
 - 文稿不见：确认浏览器、配置文件、域名、协议和端口是否相同；不要清库。

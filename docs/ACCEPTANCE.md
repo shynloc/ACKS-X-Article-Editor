@@ -5,6 +5,8 @@
 ## 已取得的证据
 
 - TypeScript 类型检查通过。
+- 27 个 Vitest 测试与 4 个打包/路由测试通过；GitHub Actions Core checks 在 Node.js 24 上通过（运行 33377680484，源码 ac2de784a4aaa9230c71cf3bdb82bda543564b82）。
+- Ajv 文稿校验器已在构建时预编译，在禁止字符串代码生成的环境中通过验证，生产 CSP 无需 unsafe-eval。
 - 转换、UTF-16 样式范围、图片引用、列表/标题降级、X DTO 边界、本地事务、过期写入保护、资源包往返与安全检查已建立单元测试。
 - 生产 Worker 在不提供 document/DOM 的 Node 线程中回归验证标题、emoji 样式与表格转换。
 - 本地非特权 Docker 运行层启动，健康接口返回 200，loopback 绑定与安全响应头已检查。
@@ -18,4 +20,17 @@
 - 双主题与响应式最终对照截图、中文 IME、性能目标和长会话验证。
 - 真实 X 账号、上传、建稿、发布均未实施或验证。
 
-类型检查、单元测试、HTTP 健康与部署成功都不能替代以上未完成事项。最终线上 HTTP 记录将在部署后补充。不能将该版本称为“全部开发可用”或据此公开仓库。
+类型检查、单元测试、HTTP 健康与部署成功都不能替代以上未完成事项。线上 HTTP 记录见下文。不能将该版本称为“全部开发可用”或据此公开仓库。
+
+## 2026-08-31 部署记录
+
+- 已部署私有预览构建到 `https://xeditor.acks.com.cn`，HTTPS `/health.json` 返回 200，构建标识 `44a46001f23bbbcd`。
+- 服务器镜像 `acks-x-article-editor:preview-ac2de78`，平台 linux/amd64，容器绑定 `127.0.0.1:5701`，健康状态正常。
+- 镜像 ID `sha256:62d59c14f550e93c2ff98f5b3abdf8d52573871ef626bac970e62902763ac657`；传输包 SHA-256 `744c9f454db344693db1784e1b94061a3730533223d2d55e75ff60d214e72c3b`，本地与服务器一致。
+- 发行目录 `/opt/acks-x-article-editor/releases/20260831-ac2de78`，当前指针 `/opt/acks-x-article-editor/current`。
+- Caddy 仅新增 `/etc/caddy/xeditor.Caddyfile` 的导入。原配置保留在 `/etc/caddy/backups/xeditor-20260831-ac2de78/Caddyfile`。
+- 已验证 HTTP-01 证书签发成功；未修改 DNS、Cloudflare TLS 模式、其他站点上游或其他容器。
+- 本地 Docker 与公网 HTTPS 的 HTTP 冒烟均通过：首页、入口 JS/CSS/图像资源、CSP、Service Worker 版本、禁止缓存更新脚本和拒绝 POST（405）。执行命令为 `node scripts/smoke-http.mjs https://xeditor.acks.com.cn`；该脚本明确不执行浏览器工作流。
+- 主站、水印站和音频站部署前后均返回 200；原有容器保持运行。
+
+浏览器端到端与视觉 QA 仍未通过，不因本节新增而改变预览版状态。

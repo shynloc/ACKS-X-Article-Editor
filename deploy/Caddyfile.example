@@ -1,5 +1,12 @@
 # Add this as a separate site/import. Do not replace existing Caddy sites.
 xeditor.example.com {
+    # With Cloudflare proxying, use HTTP-01 rather than TLS-ALPN-01.
+    tls {
+        issuer acme {
+            disable_tlsalpn_challenge
+            timeout 5m
+        }
+    }
     encode zstd gzip
     reverse_proxy 127.0.0.1:5701
 }

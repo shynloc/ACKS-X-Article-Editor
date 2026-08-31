@@ -13,7 +13,7 @@
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Private%20Preview-C18B31)
 
-[功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [数据与安全](#数据与安全) · [开发路线](#开发路线)
+[在线预览](https://xeditor.acks.com.cn) · [功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [数据与安全](#数据与安全) · [开发路线](#开发路线)
 
 </div>
 
