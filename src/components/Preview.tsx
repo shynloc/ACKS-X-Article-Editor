@@ -4,9 +4,18 @@ import {
   ImageSquare,
   WarningCircle,
 } from "@phosphor-icons/react";
-import type { Article, Conversion, TextNode, RenderNode } from "../core/types";
+import {
+  safeFilename,
+  type Article,
+  type Conversion,
+  type TextNode,
+  type RenderNode,
+  type RenderedPart,
+  type ImageNode,
+} from "../core/types";
 import { db } from "../services/database";
 import { getRenderParts } from "../services/archive";
+import { ImageTransfer } from "./ImageTransfer";
 export function useAssetUrl(id?: string) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -83,23 +92,28 @@ function GeneratedImage({
   node,
   article,
   onError,
+  ordinal,
 }: {
   node: RenderNode;
   article: Article;
   onError: (id: string, message?: string) => void;
+  ordinal: number;
 }) {
   const [urls, setUrls] = useState<string[]>([]),
+    [parts, setParts] = useState<RenderedPart[]>([]),
     [error, setError] = useState("");
   useEffect(() => {
     let active = true;
     const created: string[] = [];
     setUrls([]);
+    setParts([]);
     setError("");
     getRenderParts(node, article)
       .then((parts) => {
         if (!active) return;
         for (const p of parts) created.push(URL.createObjectURL(p.blob));
         setUrls([...created]);
+        setParts(parts);
         onError(node.id);
       })
       .catch((e) => {
@@ -123,12 +137,19 @@ function GeneratedImage({
         </div>
       ) : urls.length ? (
         urls.map((url, i) => (
-          <img
-            key={url}
-            src={url}
-            alt={`${node.renderKind === "table" ? "表格" : "代码"}图片，第 ${i + 1} 部分`}
-            loading="lazy"
-          />
+          <div className="generated-part" key={url}>
+            <img
+              src={url}
+              alt={`${node.renderKind === "table" ? "表格" : "代码"}图片，第 ${i + 1} 部分`}
+              loading="lazy"
+            />
+            <ImageTransfer
+              label={`图片 ${ordinal} · ${node.renderKind === "table" ? "表格" : "代码"}${urls.length > 1 ? ` · ${i + 1}/${urls.length}` : ""}`}
+              filename={`${safeFilename(article.title)}-图片${ordinal}-${i + 1}.png`}
+              getBlob={() => parts[i].blob}
+              disabled={!parts[i]}
+            />
+          </div>
         ))
       ) : (
         <div className="render-pending">正在本地生成图片…</div>
@@ -146,6 +167,51 @@ function GeneratedImage({
     </figure>
   );
 }
+function LocalImageFigure({
+  node,
+  article,
+  ordinal,
+  onLocate,
+}: {
+  node: ImageNode;
+  article: Article;
+  ordinal: number;
+  onLocate: (from: number, to: number) => void;
+}) {
+  const asset = article.assets.find((a) => a.id === node.assetId),
+    caption = node.caption || asset?.caption;
+  return (
+    <figure>
+      {node.assetId ? (
+        <>
+          <AssetImage
+            id={node.assetId}
+            alt={node.alt || asset?.alt || "正文图片"}
+          />
+          <ImageTransfer
+            label={`图片 ${ordinal} · 正文图`}
+            filename={`${safeFilename(article.title)}-图片${ordinal}.png`}
+            getBlob={async () => {
+              const stored = await db.assets.get(node.assetId!);
+              if (!stored) throw new Error("图片资源不存在，请重新关联。");
+              return stored.blob;
+            }}
+          />
+        </>
+      ) : (
+        <button
+          className="image-missing"
+          onClick={() => onLocate(node.from, node.to)}
+        >
+          <ImageSquare size={28} />
+          缺少图片：{node.path}
+          <small>在资源管理中重新关联本地文件</small>
+        </button>
+      )}
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
 export function Preview({
   article,
   conversion,
@@ -159,6 +225,7 @@ export function Preview({
 }) {
   const elements: ReactNode[] = [];
   const nodes = conversion?.nodes ?? [];
+  let imageOrdinal = 0;
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
     if (n.kind === "text") {
@@ -202,28 +269,13 @@ export function Preview({
       }
     } else if (n.kind === "image")
       elements.push(
-        <figure key={n.id}>
-          {n.assetId ? (
-            <AssetImage
-              id={n.assetId}
-              alt={
-                n.alt ||
-                article.assets.find((a) => a.id === n.assetId)?.alt ||
-                "正文图片"
-              }
-            />
-          ) : (
-            <button
-              className="image-missing"
-              onClick={() => onLocate(n.from, n.to)}
-            >
-              <ImageSquare size={28} />
-              缺少图片：{n.path}
-              <small>在资源管理中重新关联本地文件</small>
-            </button>
-          )}
-          {n.caption && <figcaption>{n.caption}</figcaption>}
-        </figure>,
+        <LocalImageFigure
+          key={n.id}
+          node={n}
+          article={article}
+          ordinal={++imageOrdinal}
+          onLocate={onLocate}
+        />,
       );
     else if (n.kind === "render")
       elements.push(
@@ -232,6 +284,7 @@ export function Preview({
           node={n}
           article={article}
           onError={onError}
+          ordinal={++imageOrdinal}
         />,
       );
     else if (n.kind === "divider") elements.push(<hr key={n.id} />);

@@ -1,4 +1,5 @@
 import { inspectArchive } from "./archive-inspect";
+import { APP_VERSION } from "../core/version";
 export { inspectArchive } from "./archive-inspect";
 import { zip, unzipSync, strToU8, strFromU8 } from "fflate";
 import { convert, normalizePath } from "../core/convert";
@@ -160,7 +161,7 @@ export async function exportArchive(
   });
   const manifest = {
     formatVersion: "1.0.0",
-    appVersion: "0.1.0",
+    appVersion: APP_VERSION,
     createdAt: new Date().toISOString(),
     documentId: article.id,
     revision: article.revision,

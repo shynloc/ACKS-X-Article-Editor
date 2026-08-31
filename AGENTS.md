@@ -7,6 +7,7 @@
 - User explicitly requests a production-capable app, local persistence, real tests, private GitHub repository, and Docker deployment behind the existing ACKS server proxy at xeditor.acks.com.cn. Do not deploy to Sites for this task.
 - Keep X account operations unavailable until the dedicated bridge and real account verification are complete. Do not pretend local structure validation means X acceptance.
 - Never commit credentials or private document contents; keep the repository private until the user's full-readiness condition is met.
+- Manual X transfer must separate title, body HTML, and PNG image clipboard data. Never claim HTML selection copied/uploaded a local Blob image to X. Keep a PNG download fallback and explicit image-position markers; remove UI and article title from copied body. User account screenshots stay outside Git.
 
 Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
 

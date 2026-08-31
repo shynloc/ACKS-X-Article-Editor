@@ -19,6 +19,7 @@ import {
   ArrowsOutSimple,
   SidebarSimple,
   WifiSlash,
+  Copy,
 } from "@phosphor-icons/react";
 import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
 import { Preview, AssetImage } from "./components/Preview";
@@ -58,6 +59,9 @@ import {
 import type { OfflineState } from "./services/offline";
 import { registerOffline } from "./services/offline";
 import { captureDraft } from "./services/recovery";
+import { buildClipboardBody } from "./core/clipboardBody";
+import { copyBody, copyTitle, copyErrorMessage } from "./services/clipboard";
+import { APP_VERSION } from "./core/version";
 
 type Panel =
   "validation" | "export" | "history" | "assets" | "about" | "menu" | null;
@@ -148,6 +152,8 @@ export function App() {
       online: navigator.onLine,
     }),
     [fatal, setFatal] = useState("");
+  const [copying, setCopying] = useState(false),
+    [copyFeedback, setCopyFeedback] = useState("");
   const editor = useRef<EditorHandle>(null),
     fileInput = useRef<HTMLInputElement>(null),
     coverInput = useRef<HTMLInputElement>(null),
@@ -165,18 +171,21 @@ export function App() {
     associatePath = useRef("");
   const refresh = useCallback(async () => setLibrary(await listArticles()), []);
   const load = useCallback((next: Article) => {
+    const contentChanged =
+      draft.current?.id !== next.id || draft.current?.body !== next.body;
     draft.current = next;
     captureDraft(next);
     base.current = next.revision;
     dirty.current = false;
     epoch.current++;
     setArticle(next);
-    setConversion(null);
+    if (contentChanged) setConversion(null);
     setStatus("clean");
     setError("");
     setConflict(false);
-    setRenderErrors({});
+    if (contentChanged) setRenderErrors({});
     setSelectedSnapshot(null);
+    setCopyFeedback("");
     try {
       localStorage.setItem("acks-x-active", next.id);
     } catch {}
@@ -382,6 +391,33 @@ export function App() {
       }),
     [],
   );
+  async function copyForX(kind: "title" | "body") {
+    const current = draft.current;
+    if (!current) return;
+    setCopying(true);
+    setCopyFeedback("");
+    try {
+      if (kind === "title") {
+        await copyTitle(current.title);
+        if (draft.current?.id !== current.id) return;
+        setCopyFeedback("标题已复制，请粘贴到 X 顶部“添加标题”栏。");
+      } else {
+        const payload = buildClipboardBody(
+          convert(current.body),
+          current.assets,
+        );
+        const mode = await copyBody(payload);
+        if (draft.current?.id !== current.id) return;
+        setCopyFeedback(
+          `${mode === "html" ? "正文富文本" : "正文纯文本"}已复制${mode === "plain" ? "（当前浏览器不支持富文本，请在 X 检查格式）" : ""}。${payload.imageCount ? `含 ${payload.imageCount} 处图片位置提示；请逐张复制图片或下载上传，插入后删除对应提示。` : "标题和封面需单独填写。"}${payload.postCount ? " 嵌帖按链接复制，请在 X 核对。" : ""} 尚未发送到 X。`,
+        );
+      }
+    } catch (error) {
+      setError(copyErrorMessage(error));
+    } finally {
+      setCopying(false);
+    }
+  }
   async function switchTo(next: Article) {
     try {
       await flush();
@@ -688,6 +724,7 @@ export function App() {
           <div className="theme-switch" aria-label="界面主题">
             <button
               aria-pressed={theme === "light"}
+              aria-label="浅色"
               onClick={() => setTheme("light")}
             >
               <Sun size={19} />
@@ -695,6 +732,7 @@ export function App() {
             </button>
             <button
               aria-pressed={theme === "dark"}
+              aria-label="深色"
               onClick={() => setTheme("dark")}
             >
               <Moon size={19} />
@@ -902,9 +940,34 @@ export function App() {
           />
         </section>
         <section className="preview-pane" aria-label="预览区">
-          <div className="pane-heading">
+          <div className="pane-heading preview-heading">
             <h2>X 结构预览</h2>
+            <div className="preview-copy-actions" data-copy-ui="true">
+              <button
+                className="quiet-button"
+                disabled={copying || !article.title.trim()}
+                onClick={() => copyForX("title")}
+              >
+                <Copy size={14} />
+                复制标题
+              </button>
+              <button
+                className="secondary-button copy-body-button"
+                disabled={copying || !article.body.trim()}
+                onClick={() => copyForX("body")}
+              >
+                <Copy size={15} />
+                复制正文
+              </button>
+            </div>
             <span>结构预览，非官方渲染</span>
+          </div>
+          <div className="copy-guidance" data-copy-ui="true">
+            <span>
+              正文不含标题、封面和图片。表格/代码请用下方“复制图片”或“下载
+              PNG”。
+            </span>
+            {copyFeedback && <p role="status">{copyFeedback}</p>}
           </div>
           <div className="preview-scroll">
             <Preview
@@ -1345,7 +1408,7 @@ export function App() {
           </p>
           <dl className="storage-stats">
             <dt>当前版本</dt>
-            <dd>0.1.0 · 离线核心预览版</dd>
+            <dd>{APP_VERSION} · 离线核心预览版</dd>
             <dt>离线资源</dt>
             <dd>
               {offline.ready ? "已缓存，可断网使用" : "等待应用资源缓存完成"}

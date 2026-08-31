@@ -2,6 +2,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 const root = path.resolve("dist/client");
+const appVersion = JSON.parse(await readFile("package.json", "utf8")).version;
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const result = [];
@@ -24,7 +25,7 @@ await writeFile(
   JSON.stringify({
     status: "ok",
     app: "acks-x-article-editor",
-    version: "0.1.0",
+    version: appVersion,
     build: version,
   }),
 );
