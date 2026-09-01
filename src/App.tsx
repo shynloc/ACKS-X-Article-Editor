@@ -184,9 +184,29 @@ export function App() {
     associatePath = useRef("");
   useEffect(() => {
     const url = new URL(location.href);
-    if (url.searchParams.get("x") === "connected") {
+    const outcome = url.searchParams.get("x"),
+      reason = url.searchParams.get("reason");
+    let pending = false;
+    try {
+      pending = sessionStorage.getItem("acks-x-oauth-pending") === "1";
+      if (outcome === "connected")
+        sessionStorage.removeItem("acks-x-oauth-pending");
+    } catch {}
+    if (outcome || pending) {
       setPanel("direct-x");
+      if (outcome === "error") {
+        const messages: Record<string, string> = {
+          state_mismatch:
+            "X 授权回调与发起授权的浏览器会话不一致，请在同一浏览器标签重新授权。",
+          access_denied: "你取消了 X 授权，账号尚未连接。",
+          missing_code: "X 回调没有包含授权码，请检查开发者后台的回调地址。",
+          token_exchange_failed:
+            "X 授权码交换失败，请核对当前 Client ID、应用类型和回调地址。",
+        };
+        setError(messages[reason ?? ""] ?? "X 授权回调失败，请重新授权。");
+      }
       url.searchParams.delete("x");
+      url.searchParams.delete("reason");
       history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
   }, []);

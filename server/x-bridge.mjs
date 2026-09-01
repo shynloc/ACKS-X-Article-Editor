@@ -199,6 +199,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, {
         configured: !!row.client_id,
         connected: !!row.token,
+        pending: !!row.state,
         clientId: row.client_id || "",
         csrf: row.csrf,
         user,
@@ -206,51 +207,65 @@ const server = createServer(async (req, res) => {
       });
     }
     if (req.method === "GET" && path === "/callback") {
-      if (
-        !same(
-          String(url.searchParams.get("state") || ""),
-          String(row.state || ""),
-        )
-      )
-        throw Object.assign(new Error("X 授权 state 校验失败。"), {
-          status: 403,
+      let reason = "callback_failed";
+      try {
+        if (
+          !same(
+            String(url.searchParams.get("state") || ""),
+            String(row.state || ""),
+          )
+        ) {
+          reason = "state_mismatch";
+          throw new Error("state mismatch");
+        }
+        const code = url.searchParams.get("code");
+        if (!code) {
+          reason =
+            url.searchParams.get("error") === "access_denied"
+              ? "access_denied"
+              : "missing_code";
+          throw new Error("missing authorization code");
+        }
+        const form = new URLSearchParams({
+          code,
+          grant_type: "authorization_code",
+          client_id: row.client_id,
+          redirect_uri: `${publicBase}/api/x/callback`,
+          code_verifier: open(row.verifier),
         });
-      const code = url.searchParams.get("code");
-      if (!code)
-        throw Object.assign(new Error("X 未返回授权码。"), { status: 400 });
-      const form = new URLSearchParams({
-        code,
-        grant_type: "authorization_code",
-        client_id: row.client_id,
-        redirect_uri: `${publicBase}/api/x/callback`,
-        code_verifier: open(row.verifier),
-      });
-      const response = await fetch("https://api.x.com/2/oauth2/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: form,
-        signal: AbortSignal.timeout(30000),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw Object.assign(
-          new Error("X 授权码交换失败，请检查 Client ID 与回调地址。"),
-          { status: 400 },
+        const response = await fetch("https://api.x.com/2/oauth2/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form,
+          signal: AbortSignal.timeout(30000),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          reason = "token_exchange_failed";
+          throw new Error("token exchange failed");
+        }
+        db.prepare(
+          "UPDATE sessions SET token=?,refresh=?,expires_at=?,state=NULL,verifier=NULL,user_json=NULL,updated_at=? WHERE id=?",
+        ).run(
+          seal(payload.access_token),
+          seal(payload.refresh_token || ""),
+          now() + Number(payload.expires_in || 7200) * 1000,
+          now(),
+          row.id,
         );
-      db.prepare(
-        "UPDATE sessions SET token=?,refresh=?,expires_at=?,state=NULL,verifier=NULL,user_json=NULL,updated_at=? WHERE id=?",
-      ).run(
-        seal(payload.access_token),
-        seal(payload.refresh_token || ""),
-        now() + Number(payload.expires_in || 7200) * 1000,
-        now(),
-        row.id,
-      );
-      res.writeHead(302, {
-        Location: "/?x=connected",
-        "Cache-Control": "no-store",
-      });
-      return res.end();
+        res.writeHead(302, {
+          Location: "/?x=connected",
+          "Cache-Control": "no-store",
+        });
+        return res.end();
+      } catch (error) {
+        console.error("x-bridge callback", reason, error?.message || error);
+        res.writeHead(302, {
+          Location: `/?x=error&reason=${encodeURIComponent(reason)}`,
+          "Cache-Control": "no-store",
+        });
+        return res.end();
+      }
     }
     if (req.method !== "POST") return send(res, 404, { error: "接口不存在。" });
     requirePost(req, row);

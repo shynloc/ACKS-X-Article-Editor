@@ -3,6 +3,7 @@ import type { MediaBinding } from "../core/types";
 export interface XStatus {
   configured: boolean;
   connected: boolean;
+  pending: boolean;
   clientId: string;
   csrf: string;
   redirectUri: string;

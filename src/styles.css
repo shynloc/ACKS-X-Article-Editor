@@ -1387,6 +1387,23 @@ dialog::backdrop {
   font-size: 13px;
   line-height: 1.5;
 }
+.oauth-pending-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn), transparent 55%);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--warn), transparent 90%);
+  color: var(--warn);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.oauth-pending-note svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
 .loading-screen,
 .fatal-screen {
   height: 100dvh;

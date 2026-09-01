@@ -55,6 +55,10 @@ export function XPublishDialog({
     const next = await getXStatus();
     setStatus(next);
     setClientId(next.clientId);
+    if (next.connected)
+      try {
+        sessionStorage.removeItem("acks-x-oauth-pending");
+      } catch {}
   };
   useEffect(() => {
     dialog.current?.showModal();
@@ -81,6 +85,9 @@ export function XPublishDialog({
         await refresh();
       }
       const result = await authorizeX();
+      try {
+        sessionStorage.setItem("acks-x-oauth-pending", "1");
+      } catch {}
       location.assign(result.url);
     });
   const createDraft = () =>
@@ -179,10 +186,17 @@ export function XPublishDialog({
         <p className="dialog-intro">
           通过 X 官方 OAuth 和 Articles API
           上传图片、创建草稿，再由你确认是否公开发布。本站不会要求 Client
-          Secret，也不会把访问令牌交给浏览器。
+          Secret，也不会把访问令牌交给浏览器。授权只连接账号，不会自动发布文章。
         </p>
         {!status?.connected ? (
           <div className="x-connect-card">
+            {status?.pending && (
+              <p className="oauth-pending-note" role="status">
+                <WarningCircle />
+                上次授权没有收到 X
+                回调。请确认开发者后台已经保存精确回调地址，再重新发起授权。
+              </p>
+            )}
             <label>
               <span>X Developer Client ID</span>
               <input
@@ -216,7 +230,11 @@ export function XPublishDialog({
               onClick={connect}
             >
               <Plug />
-              {busy === "connect" ? "正在跳转 X 授权…" : "保存并连接 X"}
+              {busy === "connect"
+                ? "正在跳转 X 授权…"
+                : status?.pending
+                  ? "重新发起 X 授权"
+                  : "保存并连接 X"}
             </button>
             <a
               href="https://developer.x.com/en/portal/dashboard"

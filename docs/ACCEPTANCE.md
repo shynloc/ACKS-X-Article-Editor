@@ -8,6 +8,8 @@
 
 同日部署构建 `8c6175de9401fdc7` 到 `xeditor.acks.com.cn`：静态容器与发布桥容器均为 healthy，公开 `/health.json` 和 `/api/x/health` 返回 200，OAuth 状态接口返回精确 HTTPS 回调地址并设置 Secure / HttpOnly / SameSite Cookie；公开 JS 包含工具栏、手动发布与直接发布入口。`acks.com.cn`、Watermarker 与 Audio 的跟随跳转最终状态均为 200。浏览器控制环境因原本地错误页的 URL 策略拒绝导航，未取得本轮运行截图；视觉验收仍需人工刷新站点确认。
 
+12:00 用户首次实测发现授权页返回后没有连接账号。服务端证据显示两次 `/authorize` 成功，但没有任何 `/callback` 请求，相关会话保持 pending、token 为 0、草稿为 0；截图时间显示授权尝试早于回调地址配置截图。修复版在状态接口中公开 pending 状态，返回主页时自动恢复发布对话框并提示“未收到 X 回调”；回调 state、取消授权、缺少 code 和 token 交换失败均重定向到可见错误，不再显示无上下文 JSON。真实成功回调仍须在 X Developer Portal 保存精确 URI 后复测。
+
 状态：**私有预览版本，尚未达到公开发行条件。**
 
 ## 0.1.1 剪贴板修复
