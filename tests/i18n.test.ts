@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { translate } from "../src/i18n";
+import { localizeIssue, translate } from "../src/i18n";
 
 describe("interface localization", () => {
   it("translates interface labels and variables", () => {
@@ -14,5 +14,10 @@ describe("interface localization", () => {
   it("keeps Chinese UI and user-authored content unchanged when appropriate", () => {
     expect(translate("账号", "zh-CN")).toBe("账号");
     expect(translate("用户自己的 Markdown", "en")).toBe("用户自己的 Markdown");
+  });
+  it("localizes converter diagnostics by stable issue code", () => {
+    expect(localizeIssue("TABLE_IMAGE", "表格将作为图片。", "en")).toContain(
+      "published as an image",
+    );
   });
 });

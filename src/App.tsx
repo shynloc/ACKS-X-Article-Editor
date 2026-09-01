@@ -69,7 +69,7 @@ import { captureDraft } from "./services/recovery";
 import { buildClipboardBody } from "./core/clipboardBody";
 import { copyBody, copyTitle, copyErrorMessage } from "./services/clipboard";
 import { APP_VERSION } from "./core/version";
-import { useI18n } from "./i18n";
+import { localizeIssue, useI18n } from "./i18n";
 
 type Panel =
   | "validation"
@@ -1226,7 +1226,7 @@ export function App() {
                   <CheckCircle size={20} />
                 )}
                 <span>
-                  {t(i.message)}
+                  {localizeIssue(i.code, i.message, language)}
                   <small>
                     {t("第 {line} 行", { line: i.line })} · {i.code}
                   </small>

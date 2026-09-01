@@ -247,6 +247,39 @@ const english: Record<string, string> = {
   "公式块（X 将图片化）": "Math block (rendered as image for X)",
   "Mermaid 图表（X 将图片化）": "Mermaid (rendered as image for X)",
 };
+const englishIssues: Record<string, string> = {
+  MISSING_IMAGE:
+    "The remote or referenced image is not associated with a local asset.",
+  HEADING_DOWNGRADE:
+    "This heading level will be converted to H2 for compatibility.",
+  UNSAFE_URL:
+    "The link is invalid or uses an unsupported protocol; its text is preserved without the link.",
+  INLINE_CODE: "Inline code is preserved as plain text.",
+  EXTENDED_STYLE:
+    "This style is not native to X Articles; the text is preserved without the style.",
+  HTML_TEXT: "HTML is escaped as text; scripts and styles are never executed.",
+  FOOTNOTE: "The footnote is converted to visible plain text.",
+  NESTED_LIST:
+    "Nested lists are flattened and their depth is preserved with a text prefix.",
+  LIST_START:
+    "A numbered list that does not start at 1 is converted to paragraphs with visible numbers.",
+  NESTED_QUOTE: "Nested blockquotes are merged into one quote level.",
+  TABLE_IMAGE:
+    "The table will be published as an image; its Markdown source remains in the archive.",
+  CODE_IMAGE:
+    "The code block will be published as an image; its source remains in the archive.",
+  MERMAID_SOURCE:
+    "Mermaid is currently rendered as a code image rather than a diagram.",
+  UNSUPPORTED: "Unsupported syntax is preserved as text.",
+  EMPTY_TITLE:
+    "The article has no title. A title is required before creating an X draft.",
+  TITLE_SOFT_LIMIT:
+    "The title exceeds the editor's recommended 500-character limit.",
+  MISSING_ASSET:
+    "A referenced image asset is missing. Reassociate the local file.",
+  INVALID_RANGE: "An inline style or link range is outside its text block.",
+  UNSAFE_LINK: "A link uses an unsafe protocol.",
+};
 
 interface I18nValue {
   language: Language;
@@ -304,4 +337,14 @@ export function useI18n() {
 
 export function localizeKnownMessage(message: string, language: Language) {
   return translate(message, language);
+}
+
+export function localizeIssue(
+  code: string,
+  message: string,
+  language: Language,
+) {
+  return language === "en"
+    ? (englishIssues[code] ?? translate(message, language))
+    : message;
 }
