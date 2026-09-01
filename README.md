@@ -4,249 +4,302 @@
 
 **让稿件先属于自己，再决定何时分享。**
 
-离线优先的 Markdown 长文写作台 · X 结构预览 · 可恢复资源包
+离线优先的 Markdown 长文写作台 · X 结构转换 · 手动复制与受控发布
 
+[![Core checks](https://github.com/shynloc/ACKS-X-Article-Editor/actions/workflows/ci.yml/badge.svg)](https://github.com/shynloc/ACKS-X-Article-Editor/actions/workflows/ci.yml)
 ![React](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
-![IndexedDB](https://img.shields.io/badge/Storage-IndexedDB%20%2B%20Dexie-315E49)
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Public%20Preview-285E45)
+![License](https://img.shields.io/badge/License-MIT-285E45)
+![Status](https://img.shields.io/badge/Status-Public%20Preview-C18B31)
 
-[在线预览](https://xeditor.acks.com.cn) · [功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) · [数据与安全](#数据与安全)
+[在线体验](https://xeditor.acks.com.cn) · [快速开始](#快速开始) · [自部署](#docker-自部署) · [X Developer 配置](#x-developer-配置) · [AI Agent 部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) · [项目文档](#项目文档)
 
 </div>
 
-ACKS X Article Editor 将写作、格式转换与远端发布分开。你在浏览器中编辑 Markdown；预览读取转换后的目标结构；表格和代码按明确规则生成图片；源文、图片和校验信息可一起导出，在其他浏览器中恢复。
+![ACKS X Article Editor 封面](public/assets/x-article-editor-cover.png)
 
-> **当前版本：0.2.0 私有预览版。** 已加入完整 SVG Markdown 工具栏、顺序列表输入规则、手动发布引导，以及基于 X 官方 OAuth 2.0 PKCE、媒体上传与 Articles API 的受控发布桥。2026-09-01 已由维护者真实验证 OAuth、图片与表格上传、Article 草稿和正式发布。官方体验站使用邀请码账号；自部署使用部署者自己的域名、Client ID 与 X API 余额。详细证据与限制见 [验收记录](docs/ACCEPTANCE.md)。
+ACKS X Article Editor 面向习惯 Markdown 工作流的 X Article 写作者。它把**本地写作、X 格式转换和远端发布**拆成清楚的阶段：文稿与原图默认保存在浏览器；转换器提前显示图片化、降级和缺失资源；发布时可以手动复制，也可以用自己的 X Developer Client ID 创建草稿并确认发布。
 
-## 设计基线
+> **当前版本：0.2.0 · Public Preview**<br>
+> 2026-09-01 已真实完成 OAuth、正文图片、表格图片、Article 草稿和正式发布验证。仓库公开，自部署默认不限直发次数；在线体验站使用邀请码账号控制自动发布额度。
 
-采用纸感双栏写作界面，支持浅色与深色主题。左侧管理文稿，中间编辑 Markdown，右侧查看 X 兼容结构。底栏分别显示本地保存、文件导出与 X 草稿状态。
+## 为什么做这个项目
 
-下图是**经确认的设计参考，不是已通过验收的运行截图**：
+X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或 HTML 写作的人，复制长文时经常需要重新处理标题、列表、表格、代码和图片。
 
-![浅色设计参考](docs/design/reference-light.png)
+这个项目没有克隆官方编辑器，而是采用：
 
-<details><summary>查看深色设计参考</summary>
+> **本地写作台 + X 格式转换 + 受控发布桥**
 
-![深色设计参考](docs/design/reference-dark.png)
+- Markdown 始终是可迁移的写作真源；
+- X 兼容性问题在发布前可见；
+- 表格与代码块可在本地生成清晰 PNG；
+- 自动发布先创建草稿，最终公开仍需再次确认；
+- 平台不可用时，原稿、图片和完整资源包仍在你手中。
 
-</details>
+项目自身的介绍文章也作为默认模板内置在编辑器中：[查看 Markdown 原文](docs/INTRO_ARTICLE.md)。它使用了标题、引用、强调、删除线、任务列表、表格、代码块、图片、链接和脚注，也是转换器的一份真实格式样例。
 
-## 功能范围
+## 已实现能力
 
-| 能力       | 当前实现                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------ |
-| 写作       | CodeMirror Markdown 编辑、纯 SVG 工具栏、H1–H6、行内样式、列表、引用、表格、代码、链接、图片、脚注与扩展语法 |
-| 文稿管理   | 新建、副本、归档、可恢复回收站；不自动永久删除文稿                                                           |
-| 持久化     | IndexedDB 事务、自动保存、本地版本历史、过期写入冲突保护                                                     |
-| 图片       | PNG / JPEG / 静态 WebP，文件选择、粘贴、拖入、缺图关联                                                       |
-| 格式转换   | 标题、段落、粗体/斜体/删除线、列表、引用、链接、图片、分割线、嵌帖占位                                       |
-| 图片化     | 表格与围栏代码生成 2x PNG，长内容分片，保留源码                                                              |
-| 校验       | 协议白名单、缺失资源、降级报告、源位置定位、转换 JSON                                                        |
-| 迁移       | ZIP 资源包、SHA-256 清单、哈希校验、导入为新文稿                                                             |
-| 离线       | 首次完整加载后缓存应用资源；更新需用户确认                                                                   |
-| 主题       | 浅色/深色，记住选择；不改变原图或已生成的图片                                                                |
-| X 手动发布 | 打开 X Articles、分别复制标题/正文、逐张复制或下载图片                                                       |
-| X 直接发布 | OAuth 2.0 PKCE、X 媒体上传、创建 Article 草稿、二次确认公开发布                                              |
-| 体验账号   | 官方体验站使用一次性邀请码；普通账号一次直发，管理员不限次数                                                 |
+| 范围          | 当前能力                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Markdown 编辑 | CodeMirror 6、H1–H6、粗体、斜体、删除线、引用、列表、任务列表、表格、代码、链接、图片、脚注、公式与 Mermaid 输入 |
+| 列表输入      | 回车自动继续列表；有序列表在源文中生成真实递增编号；空项再次回车退出                                             |
+| 本地保存      | IndexedDB 事务、自动保存、版本快照、跨标签 revision 冲突保护                                                     |
+| 图片          | PNG、JPEG、静态 WebP；文件选择、粘贴、拖入、缺图重新关联                                                         |
+| X 转换        | Markdown AST → X Content State；标题、行内样式、列表、引用、链接、图片与分隔线                                   |
+| 图片化        | 表格和围栏代码本地生成 2x PNG；长内容自动分片；保留原始 Markdown                                                 |
+| 校验          | 协议白名单、缺失资源、降级说明、源位置定位和转换 JSON                                                            |
+| 备份迁移      | ZIP 资源包、SHA-256 清单、完整性校验、跨浏览器导入恢复                                                           |
+| 手动发布      | 分别复制标题、富文本正文和单张 PNG；不要求登录                                                                   |
+| 直接发布      | OAuth 2.0 PKCE、X Media Upload、Article Draft、发布前二次确认                                                    |
+| 离线          | 首次完整加载后缓存应用外壳；更新由用户确认；`/api/` 永远直连网络                                                 |
+| 体验账号      | Hosted 模式邀请码注册、scrypt 密码哈希、普通账号一次直发、管理员不限次数                                         |
 
-**边界：** 首次从网站访问需要网络。不同浏览器、设备、域名之间不自动同步。`file://` 双击源码不是受支持的运行方式。Mermaid 当前保留源码并按代码出图，不承诺图形渲染。行内代码与深层标题等会按规则降级并提示。
+## 两种发布方式
+
+### 手动发布
+
+手动发布不需要账号，也不会把 OAuth token 交给本站：
+
+1. 打开“手动发布到 X”；
+2. 分别复制标题和正文；
+3. 表格、代码块和本地图片逐张复制或下载上传；
+4. 在 X Article 编辑器中检查并发布。
+
+资源包是备份格式，并不是 X 的导入文件。正文中的图片位置会以明确提示保留。
+
+### 直接创建草稿并发布
+
+直接发布使用部署者或体验者自己的 X Developer Client ID：
+
+1. OAuth 2.0 PKCE 连接 X 账号；
+2. 上传封面、正文图、表格图和代码图；
+3. 创建 X Article 草稿；
+4. 到 X 检查草稿；
+5. 输入“发布”并最终确认。
+
+应用不要求 Client Secret、Bearer Token、OAuth 1.0 Consumer Secret 或手工 Access Token。OAuth token 只在发布桥中加密保存，浏览器仅持有 HttpOnly 会话 Cookie。
+
+## 在线体验
+
+访问：[https://xeditor.acks.com.cn](https://xeditor.acks.com.cn)
+
+| 使用方式       | 权限                                         |
+| -------------- | -------------------------------------------- |
+| 不登录         | 本地写作、预览、校验、导入导出、手动发布     |
+| 普通邀请码账号 | 使用自己的 Client ID 完成一次完整自动发布    |
+| 管理员         | 自动发布不限次数，可生成邀请码和管理体验额度 |
+
+登录只控制直接发布权限，**不会把本地文稿同步到服务器**。如果只是写作和手动发布，可以始终不登录。
+
+## 架构
+
+![ACKS X Article Editor 架构](public/assets/xeditor-architecture.png)
+
+```text
+Browser
+├── React + CodeMirror
+├── IndexedDB：文稿、图片 Blob、历史版本
+├── Markdown AST：转换、校验、降级报告
+├── Canvas + Shiki：表格和代码 PNG
+└── ZIP + SHA-256：资源包与恢复
+       │
+       │ /api/x/ · same origin
+       ▼
+Node Publish Bridge
+├── OAuth 2.0 PKCE
+├── AES-256-GCM token encryption
+├── SQLite：会话、邀请码、额度、草稿记录
+└── X Media → Article Draft → Publish
+```
+
+生产环境由两个容器组成：
+
+- **editor**：非特权 Nginx，只提供静态应用并代理 `/api/x/`；
+- **bridge**：Node.js 发布桥，仅在 Compose 内网监听，不映射公网端口。
+
+文稿数据库在浏览器 IndexedDB；服务端 SQLite 不保存文稿库，只保存账号权限、加密 OAuth 会话和远端草稿记录。
 
 ## 技术栈
 
-| 层       | 选型                                           | 作用                                           |
-| -------- | ---------------------------------------------- | ---------------------------------------------- |
-| 应用     | React 19、TypeScript 7、Vite 8                 | 静态前端与类型检查                             |
-| 编辑     | CodeMirror 6                                   | 输入事务、选择区、历史与 Markdown 语法         |
-| 数据     | Dexie 4 / IndexedDB                            | 文稿、Blob 与快照；revision 冲突检查           |
-| 转换     | unified / remark-parse / remark-gfm            | Markdown AST 与自有目标模型                    |
-| 校验     | Ajv 8 / JSON Schema                            | 文档结构；X DTO 与内部模型分离                 |
-| 图像     | Canvas 2D / Shiki 4                            | 表格排版、代码高亮及 PNG 分片                  |
-| 包格式   | fflate / Web Crypto                            | ZIP、SHA-256 与完整性校验                      |
-| 后台任务 | Web Workers                                    | Markdown 转换与导入包检查                      |
-| 视觉     | CSS Variables / Phosphor Icons / Noto Serif SC | 双主题和本地字体                               |
-| 测试     | Vitest / fake-indexeddb / 生产 Worker 回归脚本 | 转换、持久化、安全边界                         |
-| 发布桥   | Node.js 24 / SQLite / AES-256-GCM              | 同源 OAuth 会话、令牌加密、媒体与 Article 请求 |
-| 运行     | 非特权 Nginx / Docker / Caddy HTTPS            | 静态应用与发布桥分容器、仅 loopback 暴露       |
+| 层       | 技术                                                                     |
+| -------- | ------------------------------------------------------------------------ |
+| 应用     | React 19、TypeScript 7、Vite 8                                           |
+| 编辑器   | CodeMirror 6                                                             |
+| 本地数据 | Dexie 4、IndexedDB                                                       |
+| Markdown | unified、remark-parse、remark-gfm                                        |
+| 校验     | Ajv 8、JSON Schema                                                       |
+| 图像     | Canvas 2D、Shiki 4                                                       |
+| 资源包   | fflate、Web Crypto                                                       |
+| 后台任务 | Web Workers                                                              |
+| 发布桥   | Node.js 24、SQLite、OAuth 2.0 PKCE、AES-256-GCM                          |
+| 运行     | Docker Compose、非特权 Nginx、Caddy / Nginx HTTPS                        |
+| 测试     | Vitest、fake-indexeddb、桥接集成测试、生产 Worker 与 Service Worker 回归 |
 
-依赖具体版本由 `pnpm-lock.yaml` 固定。服务器部署模式不需要数据库容器，也不需要 X 或 OpenAI API Key。
+依赖版本由 `pnpm-lock.yaml` 固定。
 
-## 使用指南
+## 快速开始
 
-### 新建与编辑
-
-打开站点后，示例文稿会帮助你了解界面。点击“新建”，输入标题和 Markdown。通过“正文图”插入图片，也可以把图片文件粘贴或拖入编辑区。图片会先预留正文位置，再异步处理。
-
-写作时观察底栏：只有 IndexedDB 事务提交成功才显示“已保存到本地”。“未保存”或“保存失败”不等于安全备份；遇到失败，优先导出恢复包，不要清除站点数据。
-
-### 导入 Markdown 与图片
-
-点击“导入”，选择一个 `.md` 文件，可同时选择它引用的图片。首个 H1 会提取为标题。浏览器不会因选中了 Markdown 就获得读取同目录其他文件的权限；缺图会保留占位，可在“资源管理”中逐项关联。
-
-远程图片链接不会自动访问或下载。若需要完整离线文稿，请提供本地图片。应用不会执行 Markdown 中的 HTML 或脚本。
-
-### 查看预览与问题
-
-右侧显示转换后的结构，明确标注“结构预览，非官方渲染”。点击“校验”查看图片化、降级及缺图问题；点击问题定位源文。界面中的 X 帖子卡片只是离线占位，只有主动点击外链才访问 X。
-
-表格、代码会以图片发布方向预览。图片化会损失复制与语义能力，因此资源包保留完整源码。界面主题不会反相原图，也不会改变派生图片字节。
-
-### 手动复制到 X Article
-
-1. 在预览上方点击“复制标题”，粘贴到 X 编辑器顶部的标题栏。
-2. 点击“复制正文”，粘贴到 X 正文区。复制结果包含标题层级、列表、行内格式和安全链接，不含应用界面文案、文章标题、封面或图片数据。
-3. 正文中的 `[图片 1：表格，请单独插入]` 是定位提示。回到本站对应图片下方点击“复制图片”，再到 X 的对应位置粘贴。如果 X 没有接受图片粘贴，点击“下载 PNG”，使用 X 的图片上传入口插入。
-4. 多张图片或长表/代码分片须逐张处理，插入后删除对应位置提示。嵌帖按 URL 复制，请在 X 核对是否被正确识别。
-5. 人工检查后再在 X 发布。本应用不会替你发布。
-
-预览图像使用本站私有的 Blob URL。整段选择复制不能可靠地将其变成 X 上已上传的媒体；专用图片按钮写入的是 `image/png` 数据。按钮显示“已复制”只表示剪贴板写入成功，不表示 X 已接收或文章已发布。
-
-当前浏览器不支持富文本时会明确提示“纯文本”，不支持图片复制时会提示使用下载。资源包仍是备份文件，不是 X 的导入文件。
-
-### 直接创建 X 草稿与发布
-
-点击“直接发布到 X”，输入 X Developer Portal 中 OAuth 2.0 Public Client / SPA 的 Client ID，并把界面显示的回调地址原样加入应用设置。浏览器会跳转到 X 授权；返回后，应用可把本地图片、表格和代码图片上传为 X media，再创建 Article 草稿。
-
-创建草稿不会公开内容。公开发布必须在同一对话框中输入“发布”并再次确认；服务端会核对会话、草稿 ID 和冻结请求哈希。外链图床图片在 X Article 结构中只能作为链接，不能替代原生 media ID，因此本项目不提供会产生错误预期的“图床直传 X”设置。完整设置、安全边界和故障定位见 [X 发布桥指南](docs/X_PUBLISHING.md)。
-
-官方体验站使用邀请码账号。未登录仍可使用全部本地写作、备份和手动发布能力；直接发布需要登录。普通体验账号在 X 成功返回草稿 ID 时消耗一次额度，仍可继续发布该草稿；管理员不限次数。账号只控制发布权限，稿件与图片不会因为登录而同步到服务器。
-
-### 导出与恢复
-
-“导出资源包”包含：
-
-```text
-article.xas.zip
-├── manifest.json        # 版本、文件路径、大小与 SHA-256
-├── article.json         # 完整恢复真源
-├── article.md           # 可供其他编辑器使用的 Markdown
-├── conversion.json     # 本地目标结构，不是已就绪的 X 请求
-├── validation.json     # 校验与恢复说明
-└── assets/
-    ├── original/        # 正文引用的原图与封面
-    └── derived/         # 表格与代码 PNG
-```
-
-导出固定一份文稿版本；生成过程中继续编辑不会混进这一包。普通浏览器只能确认已触发下载，**请检查实际文件**。在另一浏览器点击“导入”并选择 ZIP 即可恢复；已有同 ID 文稿不会被覆盖。
-
-“仅 Markdown”不包含图片文件，不是完整备份。“恢复包”用于抢救缺图或出图失败的稿件，可能不完整；请解压后导入 Markdown 并修复资源。
-
-### 历史、冲突和存储
-
-通过编辑区右上角历史按钮查看版本。恢复会创建新 revision，原有历史仍保留。近 24 小时保留细粒度历史，较旧记录按 5 分钟间隔保留 30 天；手动和导入快照保留。
-
-另一标签页写入新版本时，本页不会悄悄覆盖它。若存在本地未保存修改，使用“另存副本”保留两个版本。在“关于与本地存储”中查看离线资源、空间估计及持久化权限。
-
-## 本地开发
-
-需要 Node.js 24 LTS 和 pnpm 11.19.0。开发者安装依赖需要网络；终端用户访问部署站点不需要安装这些工具。
+需要 Node.js `>=24 <27` 和 pnpm `11.19.0`。
 
 ```bash
 git clone https://github.com/shynloc/ACKS-X-Article-Editor.git
 cd ACKS-X-Article-Editor
+
 corepack enable
 corepack prepare pnpm@11.19.0 --activate
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-通过 `http://127.0.0.1:47631/` 访问。不要直接打开项目中的 `index.html`。端口被占用时应用不会静默换端口，因为端口变化意味着不同浏览器存储空间。
+打开 `http://127.0.0.1:47631/`。不要双击 `index.html` 使用 `file://`，因为源码需要由 Vite 构建并提供模块、Worker 和资源路径。
+
+仅开发 X 发布桥时，在另一个终端运行：
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm build
-node scripts/test-built-worker.mjs
-pnpm test:sites
+X_SESSION_SECRET="$(openssl rand -base64 48)" pnpm dev:bridge
 ```
 
-生产静态文件在 `dist/client/`。模板保留了可选 Sites 打包元数据，但当前项目的部署目标是 Docker / Caddy，不需要 Sites 账号。
+## Docker 自部署
 
-## Docker 部署
-
-### 常规构建
+复制环境配置并生成自己的生产密钥：
 
 ```bash
 cp .env.example .env
-# 将 PUBLIC_BASE_URL 改为自己的 HTTPS 域名，并生成独立 X_SESSION_SECRET
-docker compose build
-docker compose up -d
-curl http://127.0.0.1:5701/health.json
+openssl rand -base64 48
 ```
 
-容器使用非特权 Nginx、只读根文件系统、临时 `/tmp`、资源上限和日志轮转。发布桥使用独立 Node 容器和持久 SQLite 卷；宿主机仅绑定 `127.0.0.1:5701`，不要把应用或发布桥端口公开到互联网。
+编辑 `.env`：
 
-自部署必须保持 `DEPLOYMENT_MODE=selfhost`。该模式不启用官方体验站的邀请码和一次直发限制，部署者使用自己的 X Developer Client ID、API 余额与回调地址。不要把官方体验站的域名、Client ID、Cookie、token 或 SQLite 卷复制到自部署实例。
+```env
+COMPOSE_PROJECT_NAME=acks-x-article-editor
+EDITOR_IMAGE=acks-x-article-editor:local
+BRIDGE_IMAGE=acks-x-article-editor-bridge:local
+EDITOR_PORT=5701
+PUBLIC_BASE_URL=https://xeditor.example.com
+X_SESSION_SECRET=替换为刚刚生成的随机值
+DEPLOYMENT_MODE=selfhost
+```
 
-如果由 AI Agent 执行部署，请把 [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) 整段交给 Agent，并补充 SSH 目标、域名和期望 loopback 端口。提示词包含只读审计、候选发布、X Developer 配置、验收和回滚要求。
+> 自部署必须保持 `DEPLOYMENT_MODE=selfhost`。该模式不启用官方体验站的邀请码和一次直发限制，API 用量与费用归部署者自己的 X Developer App。
 
-如果 Docker 构建网络无法连接包仓库，可先在受控构建机完成锁文件安装、测试和构建，再制作运行层镜像：
+构建并启动：
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm check
 node scripts/test-built-worker.mjs
-docker build -f Dockerfile.runtime -t acks-x-article-editor:release-id .
-EDITOR_IMAGE=acks-x-article-editor:release-id docker compose up -d --no-build
+pnpm test:sites
+
+docker compose build
+docker compose up -d
+
+curl http://127.0.0.1:5701/health.json
+curl http://127.0.0.1:5701/api/x/health
 ```
 
-这条路径复制已验证的静态构建产物，不在容器启动时联网安装包。部署前记录源码 commit 和 `/health.json` 的 build 标识。
+宿主机只应绑定 `127.0.0.1:${EDITOR_PORT}`。发布桥不应配置 `ports`。
 
-### HTTPS 与反向代理
-
-生产应使用 HTTPS，以支持安全上下文与 Service Worker。下面配置作为**独立站点**加入现有 Caddy，不能覆盖其他站点：
+Caddy 示例：
 
 ```caddyfile
-xeditor.acks.com.cn {
+xeditor.example.com {
     encode zstd gzip
     reverse_proxy 127.0.0.1:5701
 }
 ```
 
-域名解析到目标服务器，允许 80/443 到达 Caddy。修改后先 `caddy validate`，再 reload。详细服务器发行、备份、检查与回滚流程见 [部署指南](docs/DEPLOYMENT.md)。
+生产必须使用 HTTPS，以支持 Secure Cookie、Service Worker 和稳定 OAuth callback。完整发行、候选验证、备份与回滚流程见 [部署指南](docs/DEPLOYMENT.md)。
+
+如果希望交给 AI Agent 执行，直接复制 [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md)。提示词包含服务器只读审计、独立 Compose、loopback 端口、密钥、X Developer 配置、真实 OAuth 验收和回滚边界。
+
+## X Developer 配置
+
+在自己的 X Developer Portal 中启用 OAuth 2.0：
+
+| 项目            | 设置                                                           |
+| --------------- | -------------------------------------------------------------- |
+| App permissions | Read and write                                                 |
+| Type of App     | Native App / Public client                                     |
+| Callback URI    | `https://你的域名/api/x/callback`                              |
+| Website URL     | `https://你的域名`                                             |
+| Scopes          | `tweet.read tweet.write users.read media.write offline.access` |
+
+保存设置后，只把 **OAuth 2.0 Client ID** 填入编辑器。
+
+外链图床 URL 可以作为链接，但不能替代 X Article 图片实体所需的 media ID。自动发布会把本地图片上传到 X Media，再绑定返回的 media ID。
 
 ## 数据与安全
 
-- 文稿、原图与历史保存在当前浏览器 IndexedDB。只有用户主动创建 X 草稿时，冻结后的转换结构和图片才通过同源发布桥发送到 X。
-- 不包含统计 SDK、第三方字体请求、远程图片预取或嵌帖脚本。字体与高亮资源随构建提供。
-- 导出包包含私人原稿与可能带 EXIF 的原图，分享前请检查。不要提交真实用户包到 Git。
-- ZIP 导入检查路径、体积、压缩比、重复条目与哈希，校验放在隔离 Worker 中并设置超时。
-- 图片在解码前读取尺寸，拒绝超大像素、动画和不支持格式；不执行 SVG。
-- 浏览器主动清理、隐私模式与磁盘故障可能使本地数据丢失。**本地保存不能代替外部备份。**
-- Client ID 不是秘密；项目不要求 Client Secret。OAuth token 由服务端使用 AES-256-GCM 加密后保存在 SQLite，浏览器只持有 HttpOnly、SameSite 会话 Cookie。
-- 发布桥检查同源、CSRF、媒体类型与大小；日志不记录 token 或文章正文。生产必须提供独立随机 `X_SESSION_SECRET`。
-- 官方体验站的密码使用 scrypt 强哈希；邀请码只保存 SHA-256 摘要并且只能使用一次。普通账号额度在草稿创建成功后原子扣除。
-- `DEPLOYMENT_MODE=hosted` 只用于维护者运营的体验站；自部署保持 `selfhost`，不应依赖维护者的 X API 配额。
+- 文稿、原图与历史默认保存在当前浏览器 IndexedDB；
+- 不包含统计 SDK、第三方字体请求、远程图片预取或 X 嵌帖脚本；
+- OAuth token 使用 AES-256-GCM 加密后存入服务端 SQLite；
+- 密码使用 scrypt 强哈希；邀请码只保存 SHA-256 摘要且只能使用一次；
+- Cookie 使用 HttpOnly、SameSite，HTTPS 下同时使用 Secure；
+- 发布 API 检查 Origin、CSRF、账号额度、工作流归属、媒体格式与体积；
+- ZIP 导入检查路径、压缩比、体积、重复条目和 SHA-256；
+- SVG 与动画图片不会作为正文图片执行或解码；
+- Service Worker 不拦截 `/api/`，OAuth callback 始终到达网络；
+- 清除站点数据会删除本地稿件，执行前请先导出完整资源包。
 
-安全问题不要在公开 Issue 中附真实稿件、凭证或敏感日志；使用项目维护者认可的私密渠道沟通。
+不要在公开 Issue 中粘贴私人稿件、Cookie、OAuth code、Client Secret、Bearer Token、Access Token、refresh token、`.env` 或数据库文件。
 
-## 开发路线
+## 验证状态
 
-| 阶段 | 范围                                         | 状态                                |
-| ---- | -------------------------------------------- | ----------------------------------- |
-| V1.0 | 写作、转换、保存恢复、资源包与离线缓存       | 实现与验收中                        |
-| V1.1 | 完整 Markdown 工具栏、列表输入、手动发布引导 | 已在 0.2.0 实施                     |
-| V2.0 | OAuth、媒体上传、真实 X 草稿桥               | 已实现并通过真实账号联调            |
-| V2.1 | 绑定账号/草稿/请求哈希的发布确认             | 已实现并完成真实公开发布验收        |
-| V3   | MCP、模板、队列与有条件回读                  | 未实施                              |
+- `48` 项 Vitest 测试通过；
+- GitHub Actions Core checks 通过；
+- 生产 Worker、Service Worker API bypass 和 Sites 路由回归通过；
+- Hosted / Self-hosted Docker 模式通过；
+- 真实 X OAuth、Media Upload、Article Draft 和 Publish 通过；
+- 正文图片、表格图片和排版已在 X Article 中验证；
+- 全部 Git 历史经过 Gitleaks 扫描，未发现密钥。
 
-版本规划见 [PRD](docs/PRD.md)，实际范围变化见 [部署形态决策](docs/decisions/001-server-hosted.md)。
+详细证据与已知限制见 [验收记录](docs/ACCEPTANCE.md)。
+
+## 项目文档
+
+| 文档                                                       | 内容                                      |
+| ---------------------------------------------------------- | ----------------------------------------- |
+| [项目介绍文章](docs/INTRO_ARTICLE.md)                      | 可直接发布的 X Article 项目介绍与格式样例 |
+| [PRD](docs/PRD.md)                                         | 产品范围、目标用户与路线                  |
+| [X 发布桥指南](docs/X_PUBLISHING.md)                       | OAuth、媒体、草稿、发布与验收边界         |
+| [部署指南](docs/DEPLOYMENT.md)                             | 发行、Docker、反向代理、备份和回滚        |
+| [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) | 可直接交给 Agent 的完整部署任务书         |
+| [验收记录](docs/ACCEPTANCE.md)                             | 测试、真实发布、缺陷与生产部署证据        |
+| [剪贴板说明](docs/CLIPBOARD.md)                            | 标题、正文与图片复制规则                  |
+| [第三方声明](docs/THIRD_PARTY.md)                          | 依赖与许可证                              |
 
 ## 项目结构
 
 ```text
-src/components/     编辑器、预览与异常边界
-src/core/           文档类型、Markdown 转换、校验与 Worker
-src/services/       IndexedDB、出图、资源包和离线更新
-schemas/            固定的外部接口契约
-tests/              转换、存储、资源包与安全测试
-deploy/             Nginx 与 Caddy 示例
-docs/               PRD、部署、验收与设计参考
+src/components/     编辑器、预览、账号与发布界面
+src/core/           文档类型、Markdown 转换、校验与内置模板
+src/services/       IndexedDB、出图、资源包、离线更新与发布客户端
+server/             OAuth 发布桥、体验账号和管理员 CLI
+schemas/            文稿与发布结构契约
+tests/              单元、持久化和桥接集成测试
+deploy/             Nginx 配置
+docs/               PRD、部署、发布、验收与设计资料
 ```
 
-本项目处于公开预览阶段。核心写作、转换、备份和 X 发布链路已通过真实验收；不同 X API 账户、浏览器和长会话仍欢迎继续反馈。第三方组件按各自许可证使用，见 [第三方声明](docs/THIRD_PARTY.md)。
+## 已知边界
 
-本项目采用 [MIT License](LICENSE)。部署者需要自行申请并遵守 X Developer Agreement、API 计费和内容发布规则。
+- 不同浏览器、设备和域名之间不会自动同步文稿；
+- Mermaid 当前保留源码并按代码图片处理，尚未生成图形；
+- 行内代码、下划线、高亮、上下标等非 X 原生样式会明确降级；
+- X API 能力、价格、权限和配额由 X 决定；
+- 结构预览是本地转换结果，不冒充 X 官方渲染。
+
+## 参与项目
+
+欢迎提交 Issue、兼容性样例和 Pull Request。报告转换问题时，请尽量提供脱敏后的最小 Markdown，不要上传私人原稿或凭证。
+
+如果这个项目改善了你的 Markdown → X Article 工作流，欢迎点一个 **Star**。
+
+## License
+
+[MIT License](LICENSE) · Copyright © 2026 ACKS
+
+部署者需要自行申请并遵守 X Developer Agreement、API 计费和内容发布规则。本项目与 X Corp. 无隶属或官方合作关系。
