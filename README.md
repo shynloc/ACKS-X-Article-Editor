@@ -2,6 +2,8 @@
 
 # ACKS X Article Editor
 
+[中文](README.md) · [English](README_EN.md)
+
 **让稿件先属于自己，再决定何时分享。**
 
 离线优先的 Markdown 长文写作台 · X 结构转换 · 手动复制与受控发布
