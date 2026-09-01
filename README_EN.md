@@ -23,7 +23,7 @@ A local-first Markdown workstation for X Articles · structure-aware conversion 
 
 ACKS X Article Editor is built for writers who use Markdown but publish long-form work through X Articles. It separates **local writing, X-compatible conversion, and remote publishing** into explicit stages. Drafts and original images stay in the browser by default. The converter shows image rendering, style degradation, and missing assets before publishing. Writers can then use a manual copy workflow or connect their own X Developer Client ID to create and publish a draft.
 
-> **Current release: 0.2.0 · Public Preview**<br>
+> **Current release: 0.3.0 · Public Preview**<br>
 > On September 1, 2026, the complete OAuth, body image, table image, Article draft, and publish workflow was verified against a real X account. The repository is public. Self-hosted deployments have no trial publishing limit; the hosted demo uses invite accounts for controlled automatic-publishing access.
 
 ## Why this project exists

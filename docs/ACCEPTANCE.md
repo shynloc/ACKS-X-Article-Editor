@@ -1,5 +1,11 @@
 # 验收记录
 
+## 0.3.0 中英双语界面
+
+新增 `zh-CN / en` i18n 上下文、浏览器语言检测、顶部即时切换、localStorage 持久化和构建时默认语言。主界面、Markdown 工具栏、账号/邀请码、手动发布、OAuth、草稿/发布、图片复制、转换摘要与状态栏接入统一语言资源；用户标题、Markdown 与预览正文保持原文。英文发布确认词使用 `publish`，服务端已知错误由前端映射为英文。
+
+生产浏览器实测：切换 EN 后 Local writing、Library、Manual publish、Publish directly、Markdown toolbar、账号和已连接管理员发布窗口均显示英文，`document.documentElement.lang=en`；刷新后选择保持。切回中文后界面和 `lang=zh-CN` 恢复。50 项 Vitest、生产构建、Worker、Service Worker 与 Sites 路由测试通过。
+
 ## 项目介绍文章与公开预览
 
 新增正式项目介绍文章、1600×730 专属封面和 1600×900 架构图。文章覆盖引用、强调、删除线、任务列表、普通列表、表格、代码块、链接、图片与脚注；转换测试确认无阻断错误并产生文字、图片及多项表格/代码渲染节点。固定模板 ID 确保现有浏览器只新增独立介绍稿，不覆盖私人文稿；新安装默认选择该模板。
