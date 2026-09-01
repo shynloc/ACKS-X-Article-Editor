@@ -6,6 +6,8 @@
 
 当前缺少维护者的 X Developer Client ID，尚未执行真实 X OAuth、媒体上传、草稿创建或公开发布。因此 0.2.0 的 X 能力状态为“实现完成、账户联调待验收”，不能把本地桥成功表述为 X 已接受。
 
+同日部署构建 `8c6175de9401fdc7` 到 `xeditor.acks.com.cn`：静态容器与发布桥容器均为 healthy，公开 `/health.json` 和 `/api/x/health` 返回 200，OAuth 状态接口返回精确 HTTPS 回调地址并设置 Secure / HttpOnly / SameSite Cookie；公开 JS 包含工具栏、手动发布与直接发布入口。`acks.com.cn`、Watermarker 与 Audio 的跟随跳转最终状态均为 200。浏览器控制环境因原本地错误页的 URL 策略拒绝导航，未取得本轮运行截图；视觉验收仍需人工刷新站点确认。
+
 状态：**私有预览版本，尚未达到公开发行条件。**
 
 ## 0.1.1 剪贴板修复
