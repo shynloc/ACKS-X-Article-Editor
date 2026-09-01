@@ -6,6 +6,8 @@
 
 桥接集成测试使用本地模拟 X OAuth、media、draft 与 publish 服务，真实走完邀请码注册、OAuth callback、媒体上传、草稿创建、额度扣除、草稿发布和第二次工作流拒绝；管理员测试覆盖生成邀请码、读取账号列表和增加额度。AI Agent 自部署提示词包含只读审计、独立候选、密钥、callback、X Developer 设置、真实验收与回滚。
 
+生产构建 `d627ae5301633011` 已部署到 `xeditor.acks.com.cn` 的 hosted 模式。升级前使用 SQLite `VACUUM INTO` 生成一致性备份并保存在服务器权限 0600 的独立备份目录；迁移后原 OAuth 连接、一个草稿和一个已发布记录均保留。公开状态接口返回 `deploymentMode=hosted`、`registrationMode=invite`，未登录配置 Client ID 返回 401；静态包包含账号、邀请码注册、管理员邀请码和直发登录门槛。静态与桥容器均 healthy，主站、Watermarker、Audio 跟随跳转最终状态为 200。浏览器应用更新后真实看到账号窗口与未登录直发门槛；未替用户创建账号或设置密码。
+
 ## 0.2.0 Markdown 工具栏与 X 发布桥
 
 2026-09-01：44 项 Vitest 测试、TypeScript、生产构建通过。列表测试覆盖连续编号、修正粘贴后重复的 `1.`、无序/任务列表继续和空项退出。发布桥本地请求验证了 HttpOnly / SameSite Cookie、`Cache-Control: no-store`、非法 Origin 拒绝、CSRF 拒绝、Client ID 保存及 PKCE 授权 URL 生成。
