@@ -18,8 +18,51 @@ services:
     cpus: 1.0
     environment:
       NGINX_ENTRYPOINT_WORKER_PROCESSES_AUTOTUNE: "1"
+    depends_on:
+      bridge:
+        condition: service_healthy
     logging:
       driver: json-file
       options:
         max-size: 10m
         max-file: "3"
+  bridge:
+    image: ${BRIDGE_IMAGE:-acks-x-article-editor-bridge:local}
+    build:
+      context: .
+      dockerfile: Dockerfile.bridge
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    volumes:
+      - x_bridge_data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 192m
+    cpus: 0.5
+    environment:
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:5701}
+      X_SESSION_SECRET: ${X_SESSION_SECRET:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/api/x/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+volumes:
+  x_bridge_data:

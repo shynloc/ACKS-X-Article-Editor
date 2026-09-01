@@ -1,20 +1,62 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
-import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
-import { EditorView, lineNumbers, keymap, placeholder } from "@codemirror/view";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { Compartment, EditorSelection, EditorState } from "@codemirror/state";
+import { EditorView, keymap, lineNumbers, placeholder } from "@codemirror/view";
 import {
   defaultKeymap,
   history,
   historyKeymap,
   indentWithTab,
+  redo,
+  undo,
 } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
-import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
+import {
+  insertNewlineContinueMarkup,
+  markdown,
+  markdownKeymap,
+} from "@codemirror/lang-markdown";
+import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import type { Theme } from "../core/types";
+import {
+  inlineFormat,
+  insertBlock,
+  lineFormat,
+  listEnterPlan,
+  tableBlock,
+  type LineStyle,
+  type TextTransform,
+} from "../core/editorFormatting";
+
 export interface EditorHandle {
   insert(text: string): void;
   focusRange(from: number, to: number): void;
+  focus(): void;
+  undo(): void;
+  redo(): void;
+  inline(open: string, close?: string, placeholder?: string): void;
+  line(style: LineStyle): void;
+  block(before: string, after: string, placeholder?: string): void;
+  link(url?: string, label?: string): void;
+  table(rows?: number, columns?: number): void;
+  footnote(): void;
 }
+
+function minimalChange(before: string, after: string) {
+  let from = 0;
+  while (from < before.length && before[from] === after[from]) from++;
+  let beforeEnd = before.length,
+    afterEnd = after.length;
+  while (
+    beforeEnd > from &&
+    afterEnd > from &&
+    before[beforeEnd - 1] === after[afterEnd - 1]
+  ) {
+    beforeEnd--;
+    afterEnd--;
+  }
+  return { from, to: beforeEnd, insert: after.slice(from, afterEnd) };
+}
+
 export const MarkdownEditor = forwardRef<
   EditorHandle,
   {
@@ -27,42 +69,132 @@ export const MarkdownEditor = forwardRef<
 >(({ value, onChange, theme, readOnly, onImage }, ref) => {
   const host = useRef<HTMLDivElement>(null),
     view = useRef<EditorView | undefined>(undefined),
-    callbacks = useRef({ onChange, onImage }),
-    themeConfig = useRef(new Compartment()),
+    callbacks = useRef({ onChange, onImage });
+  const themeConfig = useRef(new Compartment()),
     readConfig = useRef(new Compartment());
   callbacks.current = { onChange, onImage };
+  const apply = (
+    transform: (text: string, from: number, to: number) => TextTransform,
+  ) => {
+    const current = view.current;
+    if (!current) return;
+    const selection = current.state.selection.main,
+      before = current.state.doc.toString();
+    const result = transform(before, selection.from, selection.to),
+      change = minimalChange(before, result.text);
+    current.dispatch({
+      changes: change,
+      selection: EditorSelection.range(result.from, result.to),
+      scrollIntoView: true,
+    });
+    current.focus();
+  };
   useImperativeHandle(
     ref,
     () => ({
       insert(text) {
-        const v = view.current;
-        if (!v) return;
-        v.dispatch(v.state.replaceSelection(text));
-        v.focus();
+        const current = view.current;
+        if (!current) return;
+        current.dispatch(current.state.replaceSelection(text));
+        current.focus();
       },
       focusRange(from, to) {
-        const v = view.current;
-        if (!v) return;
-        const start = Math.min(from, v.state.doc.length),
-          end = Math.min(to, v.state.doc.length);
-        v.dispatch({
+        const current = view.current;
+        if (!current) return;
+        const start = Math.min(from, current.state.doc.length),
+          end = Math.min(to, current.state.doc.length);
+        current.dispatch({
           selection: EditorSelection.range(start, end),
           effects: EditorView.scrollIntoView(start, { y: "center" }),
         });
-        v.focus();
+        current.focus();
+      },
+      focus() {
+        view.current?.focus();
+      },
+      undo() {
+        if (view.current) undo(view.current);
+      },
+      redo() {
+        if (view.current) redo(view.current);
+      },
+      inline(open, close, text) {
+        apply((doc, from, to) =>
+          inlineFormat(doc, from, to, open, close, text),
+        );
+      },
+      line(style) {
+        apply((doc, from, to) => lineFormat(doc, from, to, style));
+      },
+      block(before, after, text) {
+        apply((doc, from, to) =>
+          insertBlock(doc, from, to, before, after, text),
+        );
+      },
+      link(url = "https://", label) {
+        apply((doc, from, to) => {
+          const selected = doc.slice(from, to) || label || "链接文字",
+            insert = `[${selected}](${url})`,
+            urlStart = from + selected.length + 3;
+          return {
+            text: doc.slice(0, from) + insert + doc.slice(to),
+            from: url === "https://" ? urlStart : from + 1,
+            to:
+              url === "https://"
+                ? urlStart + url.length
+                : from + 1 + selected.length,
+          };
+        });
+      },
+      table(rows = 3, columns = 3) {
+        apply((doc, from, to) =>
+          insertBlock(doc, from, to, "", "", tableBlock(rows, columns)),
+        );
+      },
+      footnote() {
+        apply((doc, from, to) => {
+          let index = 1;
+          while (doc.includes(`[^${index}]`)) index++;
+          const reference = `[^${index}]`,
+            selected = doc.slice(from, to),
+            suffix = `${doc.endsWith("\n") ? "\n" : "\n\n"}[^${index}]: 注释内容`,
+            body = selected ? `${selected}${reference}` : reference,
+            next = doc.slice(0, from) + body + doc.slice(to) + suffix,
+            noteStart = next.length - "注释内容".length;
+          return { text: next, from: noteStart, to: next.length };
+        });
       },
     }),
     [],
   );
   useEffect(() => {
-    const v = new EditorView({
+    const continueList = (editorView: EditorView) => {
+      const selection = editorView.state.selection.main;
+      if (!selection.empty) return false;
+      const before = editorView.state.doc.toString(),
+        plan = listEnterPlan(before, selection.head);
+      if (!plan) return insertNewlineContinueMarkup(editorView);
+      editorView.dispatch({
+        changes: minimalChange(before, plan.insert),
+        selection: EditorSelection.cursor(plan.anchor),
+        scrollIntoView: true,
+      });
+      return true;
+    };
+    const editorView = new EditorView({
       parent: host.current!,
       state: EditorState.create({
         doc: value,
         extensions: [
           lineNumbers(),
           history(),
-          keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+          keymap.of([
+            { key: "Enter", run: continueList },
+            ...markdownKeymap,
+            ...defaultKeymap,
+            ...historyKeymap,
+            indentWithTab,
+          ]),
           markdown(),
           EditorView.lineWrapping,
           placeholder("从一个想法开始…\n\n支持 Markdown，也可以拖入本地图片。"),
@@ -95,41 +227,37 @@ export const MarkdownEditor = forwardRef<
           EditorView.domEventHandlers({
             paste(event) {
               const image = Array.from(event.clipboardData?.files ?? []).find(
-                (f) => f.type.startsWith("image/"),
+                (file) => file.type.startsWith("image/"),
               );
-              if (image) {
-                event.preventDefault();
-                callbacks.current.onImage(image);
-                return true;
-              }
-              return false;
+              if (!image) return false;
+              event.preventDefault();
+              callbacks.current.onImage(image);
+              return true;
             },
             drop(event) {
               const image = Array.from(event.dataTransfer?.files ?? []).find(
-                (f) => f.type.startsWith("image/"),
+                (file) => file.type.startsWith("image/"),
               );
-              if (image) {
-                event.preventDefault();
-                callbacks.current.onImage(image);
-                return true;
-              }
-              return false;
+              if (!image) return false;
+              event.preventDefault();
+              callbacks.current.onImage(image);
+              return true;
             },
           }),
         ],
       }),
     });
-    view.current = v;
+    view.current = editorView;
     return () => {
-      v.destroy();
+      editorView.destroy();
       view.current = undefined;
     };
   }, []);
   useEffect(() => {
-    const v = view.current;
-    if (v && value !== v.state.doc.toString())
-      v.dispatch({
-        changes: { from: 0, to: v.state.doc.length, insert: value },
+    const current = view.current;
+    if (current && value !== current.state.doc.toString())
+      current.dispatch({
+        changes: { from: 0, to: current.state.doc.length, insert: value },
       });
   }, [value]);
   useEffect(() => {

@@ -1,5 +1,11 @@
 # 验收记录
 
+## 0.2.0 Markdown 工具栏与 X 发布桥
+
+2026-09-01：44 项 Vitest 测试、TypeScript、生产构建通过。列表测试覆盖连续编号、修正粘贴后重复的 `1.`、无序/任务列表继续和空项退出。发布桥本地请求验证了 HttpOnly / SameSite Cookie、`Cache-Control: no-store`、非法 Origin 拒绝、CSRF 拒绝、Client ID 保存及 PKCE 授权 URL 生成。
+
+当前缺少维护者的 X Developer Client ID，尚未执行真实 X OAuth、媒体上传、草稿创建或公开发布。因此 0.2.0 的 X 能力状态为“实现完成、账户联调待验收”，不能把本地桥成功表述为 X 已接受。
+
 状态：**私有预览版本，尚未达到公开发行条件。**
 
 ## 0.1.1 剪贴板修复

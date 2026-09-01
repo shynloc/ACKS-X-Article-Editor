@@ -1,10 +1,11 @@
 {
   "name": "acks-x-article-editor",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 47631 --strictPort",
+    "dev:bridge": "X_BRIDGE_PORT=48787 PUBLIC_BASE_URL=http://127.0.0.1:47631 X_BRIDGE_DB=.local/x-bridge.sqlite node server/x-bridge.mjs",
     "build": "node scripts/build-schema.mjs && tsc --noEmit && vite build && node scripts/prepare-sites-build.mjs && node scripts/build-offline.mjs",
     "preview": "vite preview",
     "test:sites": "node --test tests/sites-worker.test.mjs",

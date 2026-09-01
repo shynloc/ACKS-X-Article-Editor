@@ -179,8 +179,40 @@ export function convert(source: string): Conversion {
           "INLINE_CODE",
           "行内代码以普通文字呈现，源码仍被保留。",
         );
-      if (child.type === "html")
+      if (child.type === "html") {
+        const tag = child.value?.trim().toLowerCase() ?? "";
+        const extension =
+          tag === "<u>"
+            ? "下划线"
+            : tag === "<mark>"
+              ? "高亮"
+              : tag === "<sup>"
+                ? "上标"
+                : tag === "<sub>"
+                  ? "下标"
+                  : /^<span\s+data-md-wavy(?:=(?:"true"|'true'|true))?\s*>$/.test(
+                        tag,
+                      )
+                    ? "波浪线"
+                    : undefined;
+        const extensionClose = [
+          "</u>",
+          "</mark>",
+          "</sup>",
+          "</sub>",
+          "</span>",
+        ].includes(tag);
+        if (extension || extensionClose) {
+          if (extension)
+            addIssue(
+              child,
+              "EXTENDED_STYLE",
+              `${extension}不是 X Article 原生样式，发布时将保留文字并移除样式。`,
+            );
+          return;
+        }
         addIssue(child, "HTML_TEXT", "HTML 已转义为文字，不执行脚本或样式。");
+      }
       if (child.type === "footnoteReference") {
         addIssue(child, "FOOTNOTE", "脚注引用转换为可见编号。");
         child = { ...child, value: `[^${child.identifier}]` };

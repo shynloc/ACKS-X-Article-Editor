@@ -20,8 +20,13 @@ import {
   SidebarSimple,
   WifiSlash,
   Copy,
+  XLogo,
+  PaperPlaneTilt,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
+import { MarkdownToolbar } from "./components/MarkdownToolbar";
+import { XPublishDialog } from "./components/XPublishDialog";
 import { Preview, AssetImage } from "./components/Preview";
 import {
   convert,
@@ -64,7 +69,15 @@ import { copyBody, copyTitle, copyErrorMessage } from "./services/clipboard";
 import { APP_VERSION } from "./core/version";
 
 type Panel =
-  "validation" | "export" | "history" | "assets" | "about" | "menu" | null;
+  | "validation"
+  | "export"
+  | "history"
+  | "assets"
+  | "about"
+  | "menu"
+  | "manual-x"
+  | "direct-x"
+  | null;
 const boot = async () => {
   await db.open();
   await seedLibrary();
@@ -169,6 +182,14 @@ export function App() {
     worker = useRef<Worker | null>(null),
     requestId = useRef(0),
     associatePath = useRef("");
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (url.searchParams.get("x") === "connected") {
+      setPanel("direct-x");
+      url.searchParams.delete("x");
+      history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
+  }, []);
   const refresh = useCallback(async () => setLibrary(await listArticles()), []);
   const load = useCallback((next: Article) => {
     const contentChanged =
@@ -746,6 +767,20 @@ export function App() {
             校验{errors.length > 0 && <span className="error-dot" />}
           </button>
           <button
+            className="secondary-button header-publish-button"
+            onClick={() => setPanel("manual-x")}
+          >
+            <XLogo size={17} />
+            手动发布到 X
+          </button>
+          <button
+            className="primary-button header-publish-button"
+            onClick={() => setPanel("direct-x")}
+          >
+            <PaperPlaneTilt size={17} />
+            直接发布到 X
+          </button>
+          <button
             className="primary-button"
             onClick={() => setPanel("export")}
             disabled={busy}
@@ -928,6 +963,10 @@ export function App() {
               </button>
             </div>
           </div>
+          <MarkdownToolbar
+            editor={editor}
+            onImage={() => imageInput.current?.click()}
+          />
           <MarkdownEditor
             key={article.id}
             ref={editor}
@@ -1152,6 +1191,68 @@ export function App() {
             <pre>{JSON.stringify(conversion, null, 2)}</pre>
           </details>
         </Modal>
+      )}
+      {panel === "manual-x" && (
+        <Modal title="手动发布到 X" close={() => setPanel(null)}>
+          <p className="dialog-intro">
+            X 没有资源包导入入口。按下面顺序把标题、正文和图片放入 X Article
+            编辑器；你的内容不会由本站发送给 X。
+          </p>
+          <ol className="publish-steps">
+            <li>
+              <strong>打开 X Articles</strong>
+              <span>未登录时 X 会先显示登录页；登录后进入 Articles 页面。</span>
+              <a
+                className="secondary-button"
+                href="https://x.com/compose/articles"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ArrowSquareOut size={17} />
+                打开 X Articles
+              </a>
+            </li>
+            <li>
+              <strong>复制并粘贴标题</strong>
+              <button
+                className="secondary-button"
+                disabled={copying || !article.title.trim()}
+                onClick={() => copyForX("title")}
+              >
+                <Copy size={16} />
+                复制标题
+              </button>
+            </li>
+            <li>
+              <strong>复制并粘贴正文</strong>
+              <span>正文不含标题、封面和图片，粘贴后请检查格式。</span>
+              <button
+                className="primary-button"
+                disabled={copying || !article.body.trim()}
+                onClick={() => copyForX("body")}
+              >
+                <Copy size={16} />
+                复制正文
+              </button>
+            </li>
+            <li>
+              <strong>逐张插入图片</strong>
+              <span>
+                表格、代码块和本地图片请在右侧预览中使用“复制图片”或“下载
+                PNG”。外链图床地址只能成为链接，不能替代 X 原生图片上传。
+              </span>
+            </li>
+          </ol>
+          {copyFeedback && <p className="success-note">{copyFeedback}</p>}
+        </Modal>
+      )}
+      {panel === "direct-x" && (
+        <XPublishDialog
+          article={article}
+          conversion={conversion}
+          close={() => setPanel(null)}
+          onNotice={setNotice}
+        />
       )}
       {panel === "export" && (
         <Modal title="导出与备份" close={() => !busy && setPanel(null)}>

@@ -20,6 +20,9 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: ["terminal.local"],
+    proxy: {
+      "/api/x": "http://127.0.0.1:48787",
+    },
     warmup: {
       clientFiles: ["./src/main.jsx"],
     },
