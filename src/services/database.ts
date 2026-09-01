@@ -8,6 +8,10 @@ import {
   type Snapshot,
   type StoredAsset,
 } from "../core/types";
+import {
+  INTRO_ARCHITECTURE_PLACEHOLDER,
+  INTRO_ARTICLE_ID,
+} from "../core/introArticle";
 
 export class ConflictError extends Error {
   constructor() {
@@ -113,33 +117,69 @@ export async function listArticles() {
     b.updatedAt.localeCompare(a.updatedAt),
   );
 }
-export async function seedLibrary() {
-  if (await db.articles.count()) return;
-  const article = newArticle(SAMPLE_TITLE, SAMPLE_BODY);
-  try {
-    const response = await fetch("/assets/writing-cover.webp");
-    if (!response.ok) throw new Error("cover");
-    const blob = await response.blob(),
-      hash = await sha256(blob),
-      id = `asset-${hash.slice(0, 24)}`;
-    const asset = {
-      id,
-      kind: "cover" as const,
-      mime: blob.type,
-      filename: "writing-cover.webp",
-      byteLength: blob.size,
-      sha256: hash,
-      width: 1600,
-      height: 730,
-      alt: "阳光下的木桌、笔记本与绿色咖啡杯",
-      caption: "",
-    };
-    article.assets = [asset];
-    article.coverId = id;
-    await insertArticle(article, [{ id, blob, sha256: hash }], "示例文稿");
-  } catch {
-    await insertArticle(article, [], "示例文稿");
+export async function seedLibrary(database = db) {
+  const wasEmpty = (await database.articles.count()) === 0;
+  if (!(await database.articles.get(INTRO_ARTICLE_ID))) {
+    const article = newArticle(SAMPLE_TITLE, SAMPLE_BODY);
+    article.id = INTRO_ARTICLE_ID;
+    try {
+      const definitions = [
+        {
+          path: "/assets/x-article-editor-cover.webp",
+          filename: "x-article-editor-cover.webp",
+          kind: "cover" as const,
+          width: 1600,
+          height: 730,
+          alt: "从本地 Markdown 写作台通向结构化长文发布的工作流",
+        },
+        {
+          path: "/assets/xeditor-architecture.webp",
+          filename: "xeditor-architecture.webp",
+          kind: "image" as const,
+          width: 1600,
+          height: 900,
+          alt: "ACKS X Article Editor 本地写作、格式转换与发布桥架构",
+        },
+      ];
+      const assets: Article["assets"] = [],
+        blobs: StoredAsset[] = [];
+      for (const definition of definitions) {
+        const response = await fetch(definition.path);
+        if (!response.ok) throw new Error("intro asset");
+        const blob = await response.blob(),
+          hash = await sha256(blob),
+          id = `asset-${hash}`;
+        assets.push({
+          id,
+          kind: definition.kind,
+          mime: blob.type,
+          filename: definition.filename,
+          byteLength: blob.size,
+          sha256: hash,
+          width: definition.width,
+          height: definition.height,
+          alt: definition.alt,
+          caption: "",
+        });
+        blobs.push({ id, blob, sha256: hash });
+      }
+      article.assets = assets;
+      article.coverId = assets[0].id;
+      article.body = article.body.replace(
+        INTRO_ARCHITECTURE_PLACEHOLDER,
+        assets[1].id,
+      );
+      await insertArticle(article, blobs, "项目介绍模板", database);
+    } catch {
+      if (await database.articles.get(INTRO_ARTICLE_ID)) return;
+      article.body = article.body.replace(
+        /!\[[^\]]*\]\(asset:__ARCHITECTURE_ASSET__\)\r?\n*/,
+        "",
+      );
+      await insertArticle(article, [], "项目介绍模板", database);
+    }
   }
+  if (!wasEmpty) return;
   for (const [title, body] of [
     [
       "一篇长文的结构",
@@ -150,7 +190,7 @@ export async function seedLibrary() {
       "## 留白，也是写作的一部分\n\n想法不必立即完整。这里是你的本地写作空间。",
     ],
   ])
-    await insertArticle(newArticle(title, body), [], "示例文稿");
+    await insertArticle(newArticle(title, body), [], "示例文稿", database);
 }
 export async function pruneHistory(database = db) {
   const day = Date.now() - 24 * 3600_000,

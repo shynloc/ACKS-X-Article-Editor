@@ -11,7 +11,7 @@
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
 ![IndexedDB](https://img.shields.io/badge/Storage-IndexedDB%20%2B%20Dexie-315E49)
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Private%20Preview-C18B31)
+![Status](https://img.shields.io/badge/Status-Public%20Preview-285E45)
 
 [在线预览](https://xeditor.acks.com.cn) · [功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) · [数据与安全](#数据与安全)
 
@@ -247,4 +247,6 @@ deploy/             Nginx 与 Caddy 示例
 docs/               PRD、部署、验收与设计参考
 ```
 
-本项目尚未宣告正式可用或开源发行；仓库在完整验收前保持私有。公开前需完成验收、源码/历史敏感信息检查并确认许可证。第三方组件按各自许可证使用，见 [第三方声明](docs/THIRD_PARTY.md)。
+本项目处于公开预览阶段。核心写作、转换、备份和 X 发布链路已通过真实验收；不同 X API 账户、浏览器和长会话仍欢迎继续反馈。第三方组件按各自许可证使用，见 [第三方声明](docs/THIRD_PARTY.md)。
+
+本项目采用 [MIT License](LICENSE)。部署者需要自行申请并遵守 X Developer Agreement、API 计费和内容发布规则。

@@ -1,11 +1,13 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import {
   EditorDatabase,
   insertArticle,
   saveArticle,
   ConflictError,
+  seedLibrary,
 } from "../src/services/database";
 import { newArticle } from "../src/core/types";
+import { INTRO_ARTICLE_ID } from "../src/core/introArticle";
 const databases: EditorDatabase[] = [];
 function fresh() {
   const d = new EditorDatabase(`test-${crypto.randomUUID()}`);
@@ -13,6 +15,7 @@ function fresh() {
   return d;
 }
 afterEach(async () => {
+  vi.unstubAllGlobals();
   for (const d of databases.splice(0)) {
     d.close();
     await d.delete();
@@ -78,5 +81,27 @@ describe("transactional persistence", () => {
     ).rejects.toThrow("冲突");
     expect((await d.assets.get("asset-a"))?.sha256).toBe("old");
     expect(await d.articles.count()).toBe(0);
+  });
+  it("adds the project introduction template without overwriting existing drafts", async () => {
+    const d = fresh();
+    const original = await insertArticle(
+      newArticle("已有文稿", "私人内容"),
+      [],
+      "测试",
+      d,
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response(new Blob(["image"], { type: "image/webp" })),
+      ),
+    );
+    await seedLibrary(d);
+    const intro = await d.articles.get(INTRO_ARTICLE_ID);
+    expect(intro?.assets).toHaveLength(2);
+    expect(intro?.coverId).toBe(intro?.assets[0].id);
+    expect(intro?.body).not.toContain("__ARCHITECTURE_ASSET__");
+    expect((await d.articles.get(original.id))?.body).toBe("私人内容");
+    expect(await d.articles.count()).toBe(2);
   });
 });

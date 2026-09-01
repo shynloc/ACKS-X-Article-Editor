@@ -140,22 +140,10 @@ export interface MediaBinding {
   media_id: string;
   media_category: string;
 }
-export const SAMPLE_TITLE = "把灵感，留在本地";
-export const SAMPLE_BODY = `## 写作，应该先让人安心
-
-好的工具不打断思路，也不替你决定表达。
-让草稿先属于自己，再决定何时分享。
-
-## 从想法到文章
-
-- 写下想法，不必一次完成
-- 插入图片，保留它的位置
-- 看清转换结果，再导出备份
-
-| 环节 | 原则 |
-| --- | --- |
-| 写作 | 本地保存 |
-| 预览 | 明示降级 |`;
+export {
+  INTRO_ARTICLE_TITLE as SAMPLE_TITLE,
+  INTRO_ARTICLE_BODY as SAMPLE_BODY,
+} from "./introArticle";
 export function newArticle(title = "", body = ""): Article {
   const now = new Date().toISOString();
   return {
