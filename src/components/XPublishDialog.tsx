@@ -25,6 +25,7 @@ import {
   disconnectX,
   getXStatus,
   publishXDraft,
+  startDirectWorkflow,
   uploadXMedia,
   type XStatus,
 } from "../services/xBridge";
@@ -34,11 +35,13 @@ export function XPublishDialog({
   conversion,
   close,
   onNotice,
+  onRequireAccount,
 }: {
   article: Article;
   conversion: Conversion | null;
   close: () => void;
   onNotice: (message: string) => void;
+  onRequireAccount: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState<XStatus>();
@@ -49,12 +52,23 @@ export function XPublishDialog({
   const [draft, setDraft] = useState<{
     articleId: string;
     requestHash: string;
+    workflowId: string;
   }>();
   const [confirmation, setConfirmation] = useState("");
   const refresh = async () => {
     const next = await getXStatus();
     setStatus(next);
     setClientId(next.clientId);
+    if (
+      next.workflow?.status === "draft" &&
+      next.workflow.articleId &&
+      next.workflow.requestHash
+    )
+      setDraft({
+        articleId: next.workflow.articleId,
+        requestHash: next.workflow.requestHash,
+        workflowId: next.workflow.id,
+      });
     if (next.connected)
       try {
         sessionStorage.removeItem("acks-x-oauth-pending");
@@ -93,6 +107,20 @@ export function XPublishDialog({
   const createDraft = () =>
     run("draft", async () => {
       if (!conversion) throw new Error("转换仍在进行，请稍后再试。");
+      const started = await startDirectWorkflow();
+      if (
+        started.workflow.status === "draft" &&
+        started.workflow.articleId &&
+        started.workflow.requestHash
+      ) {
+        setDraft({
+          articleId: started.workflow.articleId,
+          requestHash: started.workflow.requestHash,
+          workflowId: started.workflow.id,
+        });
+        return;
+      }
+      const workflowId = started.workflow.id;
       const blocking = validateConversion(article, conversion).filter(
         (issue) => issue.severity === "error",
       );
@@ -106,7 +134,7 @@ export function XPublishDialog({
         const stored = await db.assets.get(id);
         if (!stored) throw new Error("本地图片资源缺失，请重新关联。");
         setProgress(`正在上传图片 ${Object.keys(media).length + 1}…`);
-        media[id] = await uploadXMedia(stored.blob);
+        media[id] = await uploadXMedia(stored.blob, workflowId);
       };
       if (article.coverId) await uploadAsset(article.coverId);
       for (const node of conversion.nodes)
@@ -127,7 +155,7 @@ export function XPublishDialog({
           setProgress(
             `正在上传${node.renderKind === "table" ? "表格" : "代码"}图片 ${index + 1}/${parts.length}…`,
           );
-          media[id] = await uploadXMedia(part.blob);
+          media[id] = await uploadXMedia(part.blob, workflowId);
           nodes.push({
             kind: "image",
             id: `${node.id}-${index}`,
@@ -147,15 +175,20 @@ export function XPublishDialog({
       );
       const requestHash = await sha256(JSON.stringify(request));
       setProgress("正在创建 X Article 草稿…");
-      const result = await createXDraft(request, requestHash);
-      setDraft({ articleId: result.articleId, requestHash });
+      const result = await createXDraft(request, requestHash, workflowId);
+      setDraft({ articleId: result.articleId, requestHash, workflowId });
       setProgress("");
+      await refresh();
     });
   const publish = () =>
     run("publish", async () => {
       if (!draft || confirmation !== "发布")
         throw new Error("请输入“发布”确认公开操作。");
-      const result = await publishXDraft(draft.articleId, draft.requestHash);
+      const result = await publishXDraft(
+        draft.articleId,
+        draft.requestHash,
+        draft.workflowId,
+      );
       onNotice(
         `X Article 已发布${result.postId ? ` · Post ${result.postId}` : ""}`,
       );
@@ -188,7 +221,25 @@ export function XPublishDialog({
           上传图片、创建草稿，再由你确认是否公开发布。本站不会要求 Client
           Secret，也不会把访问令牌交给浏览器。授权只连接账号，不会自动发布文章。
         </p>
-        {!status?.connected ? (
+        {status?.deploymentMode === "hosted" && !status.account ? (
+          <div className="x-login-gate">
+            <LockSimple size={30} />
+            <strong>直接发布需要体验账号</strong>
+            <p>
+              登录后可以使用自己的 X Developer Client
+              ID。普通体验账号有一次完整直发额度；手动发布不受影响。
+            </p>
+            <button
+              className="primary-button wide"
+              onClick={() => {
+                close();
+                onRequireAccount();
+              }}
+            >
+              登录或使用邀请码注册
+            </button>
+          </div>
+        ) : !status?.connected ? (
           <div className="x-connect-card">
             {status?.pending && (
               <p className="oauth-pending-note" role="status">
@@ -264,6 +315,14 @@ export function XPublishDialog({
                 断开
               </button>
             </div>
+            {status.account && (
+              <p className="direct-allowance">
+                {status.account.role === "admin" ||
+                status.account.directRemaining < 0
+                  ? "管理员 · 直接发布不限次数"
+                  : `体验额度：剩余 ${status.account.directRemaining} / ${status.account.directLimit} 次`}
+              </p>
+            )}
             {!draft ? (
               <button
                 className="primary-button wide"

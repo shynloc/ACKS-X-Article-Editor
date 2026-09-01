@@ -13,13 +13,13 @@
 ![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Private%20Preview-C18B31)
 
-[在线预览](https://xeditor.acks.com.cn) · [功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [数据与安全](#数据与安全) · [开发路线](#开发路线)
+[在线预览](https://xeditor.acks.com.cn) · [功能范围](#功能范围) · [使用指南](#使用指南) · [本地开发](#本地开发) · [Docker 部署](#docker-部署) · [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) · [数据与安全](#数据与安全)
 
 </div>
 
 ACKS X Article Editor 将写作、格式转换与远端发布分开。你在浏览器中编辑 Markdown；预览读取转换后的目标结构；表格和代码按明确规则生成图片；源文、图片和校验信息可一起导出，在其他浏览器中恢复。
 
-> **当前版本：0.2.0 私有预览版。** 已加入完整 SVG Markdown 工具栏、顺序列表输入规则、手动发布引导，以及基于 X 官方 OAuth 2.0 PKCE、媒体上传与 Articles API 的受控发布桥。代码与本地桥已验证，真实 X 账号联调仍需要有效的 X Developer Client ID，因此不宣称 X 草稿或公开发布已经通过线上验收。详细证据与限制见 [验收记录](docs/ACCEPTANCE.md)。
+> **当前版本：0.2.0 私有预览版。** 已加入完整 SVG Markdown 工具栏、顺序列表输入规则、手动发布引导，以及基于 X 官方 OAuth 2.0 PKCE、媒体上传与 Articles API 的受控发布桥。2026-09-01 已由维护者真实验证 OAuth、图片与表格上传、Article 草稿和正式发布。官方体验站使用邀请码账号；自部署使用部署者自己的域名、Client ID 与 X API 余额。详细证据与限制见 [验收记录](docs/ACCEPTANCE.md)。
 
 ## 设计基线
 
@@ -51,6 +51,7 @@ ACKS X Article Editor 将写作、格式转换与远端发布分开。你在浏�
 | 主题       | 浅色/深色，记住选择；不改变原图或已生成的图片                                                                |
 | X 手动发布 | 打开 X Articles、分别复制标题/正文、逐张复制或下载图片                                                       |
 | X 直接发布 | OAuth 2.0 PKCE、X 媒体上传、创建 Article 草稿、二次确认公开发布                                              |
+| 体验账号   | 官方体验站使用一次性邀请码；普通账号一次直发，管理员不限次数                                                 |
 
 **边界：** 首次从网站访问需要网络。不同浏览器、设备、域名之间不自动同步。`file://` 双击源码不是受支持的运行方式。Mermaid 当前保留源码并按代码出图，不承诺图形渲染。行内代码与深层标题等会按规则降级并提示。
 
@@ -111,6 +112,8 @@ ACKS X Article Editor 将写作、格式转换与远端发布分开。你在浏�
 
 创建草稿不会公开内容。公开发布必须在同一对话框中输入“发布”并再次确认；服务端会核对会话、草稿 ID 和冻结请求哈希。外链图床图片在 X Article 结构中只能作为链接，不能替代原生 media ID，因此本项目不提供会产生错误预期的“图床直传 X”设置。完整设置、安全边界和故障定位见 [X 发布桥指南](docs/X_PUBLISHING.md)。
 
+官方体验站使用邀请码账号。未登录仍可使用全部本地写作、备份和手动发布能力；直接发布需要登录。普通体验账号在 X 成功返回草稿 ID 时消耗一次额度，仍可继续发布该草稿；管理员不限次数。账号只控制发布权限，稿件与图片不会因为登录而同步到服务器。
+
 ### 导出与恢复
 
 “导出资源包”包含：
@@ -168,12 +171,17 @@ pnpm test:sites
 
 ```bash
 cp .env.example .env
+# 将 PUBLIC_BASE_URL 改为自己的 HTTPS 域名，并生成独立 X_SESSION_SECRET
 docker compose build
 docker compose up -d
 curl http://127.0.0.1:5701/health.json
 ```
 
 容器使用非特权 Nginx、只读根文件系统、临时 `/tmp`、资源上限和日志轮转。发布桥使用独立 Node 容器和持久 SQLite 卷；宿主机仅绑定 `127.0.0.1:5701`，不要把应用或发布桥端口公开到互联网。
+
+自部署必须保持 `DEPLOYMENT_MODE=selfhost`。该模式不启用官方体验站的邀请码和一次直发限制，部署者使用自己的 X Developer Client ID、API 余额与回调地址。不要把官方体验站的域名、Client ID、Cookie、token 或 SQLite 卷复制到自部署实例。
+
+如果由 AI Agent 执行部署，请把 [AI Agent 自部署提示词](docs/SELF_HOSTING_AGENT_PROMPT.md) 整段交给 Agent，并补充 SSH 目标、域名和期望 loopback 端口。提示词包含只读审计、候选发布、X Developer 配置、验收和回滚要求。
 
 如果 Docker 构建网络无法连接包仓库，可先在受控构建机完成锁文件安装、测试和构建，再制作运行层镜像：
 
@@ -210,6 +218,8 @@ xeditor.acks.com.cn {
 - 浏览器主动清理、隐私模式与磁盘故障可能使本地数据丢失。**本地保存不能代替外部备份。**
 - Client ID 不是秘密；项目不要求 Client Secret。OAuth token 由服务端使用 AES-256-GCM 加密后保存在 SQLite，浏览器只持有 HttpOnly、SameSite 会话 Cookie。
 - 发布桥检查同源、CSRF、媒体类型与大小；日志不记录 token 或文章正文。生产必须提供独立随机 `X_SESSION_SECRET`。
+- 官方体验站的密码使用 scrypt 强哈希；邀请码只保存 SHA-256 摘要并且只能使用一次。普通账号额度在草稿创建成功后原子扣除。
+- `DEPLOYMENT_MODE=hosted` 只用于维护者运营的体验站；自部署保持 `selfhost`，不应依赖维护者的 X API 配额。
 
 安全问题不要在公开 Issue 中附真实稿件、凭证或敏感日志；使用项目维护者认可的私密渠道沟通。
 
@@ -219,8 +229,8 @@ xeditor.acks.com.cn {
 | ---- | -------------------------------------------- | ----------------------------------- |
 | V1.0 | 写作、转换、保存恢复、资源包与离线缓存       | 实现与验收中                        |
 | V1.1 | 完整 Markdown 工具栏、列表输入、手动发布引导 | 已在 0.2.0 实施                     |
-| V2.0 | OAuth、媒体上传、真实 X 草稿桥               | 已实现；待有效 X Developer 应用联调 |
-| V2.1 | 绑定账号/草稿/请求哈希的发布确认             | 已实现；待真实公开发布验收          |
+| V2.0 | OAuth、媒体上传、真实 X 草稿桥               | 已实现并通过真实账号联调            |
+| V2.1 | 绑定账号/草稿/请求哈希的发布确认             | 已实现并完成真实公开发布验收        |
 | V3   | MCP、模板、队列与有条件回读                  | 未实施                              |
 
 版本规划见 [PRD](docs/PRD.md)，实际范围变化见 [部署形态决策](docs/decisions/001-server-hosted.md)。

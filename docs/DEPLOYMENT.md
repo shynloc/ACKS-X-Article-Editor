@@ -4,6 +4,8 @@
 
 浏览器 → HTTPS / Caddy → `127.0.0.1:5701` → 非特权 Nginx 容器。Nginx 提供 `dist/client/`，并把 `/api/x/` 代理到 Compose 内网的 Node 发布桥。发布桥只保存加密 OAuth 会话和已创建草稿的完整性记录；稿件库仍只在浏览器 IndexedDB。
 
+自部署在 `.env` 中使用 `DEPLOYMENT_MODE=selfhost`，不启用官方体验站的邀请码和一次直发限制。只有维护者运营的公共体验站才使用 `DEPLOYMENT_MODE=hosted`；hosted 模式必须先通过 `admin-cli.mjs create-admin-invite` 生成一次性管理员邀请码，再由管理员在界面中创建普通体验邀请码。
+
 线上域名：`xeditor.acks.com.cn`。SSH 使用操作者本机已配置的 `acks` 别名；仓库不保存主机密钥或登录凭证。
 
 ## 发行目录

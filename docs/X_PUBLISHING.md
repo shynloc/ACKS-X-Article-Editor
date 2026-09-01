@@ -27,6 +27,8 @@ X API 端点不向任意网页开放浏览器 CORS。把 bearer token 存入 Ind
 5. 用户可先到 X Articles 检查草稿。
 6. 只有输入“发布”后，服务端才会核对会话、Article ID 与请求哈希并调用 publish API。
 
+官方 hosted 体验站在媒体上传前要求邀请码账号。普通账号只能保留一个未完成工作流，并在 X 成功返回草稿 ID 后消耗一次额度；发布该草稿不重复计数。管理员不限次数。自部署 `selfhost` 模式不启用此限制，API 用量与费用归部署者自己的 X Developer App。
+
 外链图片 URL 不是 Article 图片实体。它可以保留为链接，但 X 原生图片要求 media ID，所以图床不会省略媒体上传步骤。
 
 ## 验收边界

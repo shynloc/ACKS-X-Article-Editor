@@ -23,10 +23,12 @@ import {
   XLogo,
   PaperPlaneTilt,
   ArrowSquareOut,
+  UserCircle,
 } from "@phosphor-icons/react";
 import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
 import { MarkdownToolbar } from "./components/MarkdownToolbar";
 import { XPublishDialog } from "./components/XPublishDialog";
+import { AccountDialog } from "./components/AccountDialog";
 import { Preview, AssetImage } from "./components/Preview";
 import {
   convert,
@@ -77,6 +79,7 @@ type Panel =
   | "menu"
   | "manual-x"
   | "direct-x"
+  | "account"
   | null;
 const boot = async () => {
   await db.open();
@@ -787,6 +790,13 @@ export function App() {
             校验{errors.length > 0 && <span className="error-dot" />}
           </button>
           <button
+            className="secondary-button header-account-button"
+            onClick={() => setPanel("account")}
+          >
+            <UserCircle size={18} />
+            账号
+          </button>
+          <button
             className="secondary-button header-publish-button"
             onClick={() => setPanel("manual-x")}
           >
@@ -1272,7 +1282,11 @@ export function App() {
           conversion={conversion}
           close={() => setPanel(null)}
           onNotice={setNotice}
+          onRequireAccount={() => setPanel("account")}
         />
+      )}
+      {panel === "account" && (
+        <AccountDialog close={() => setPanel(null)} onNotice={setNotice} />
       )}
       {panel === "export" && (
         <Modal title="导出与备份" close={() => !busy && setPanel(null)}>

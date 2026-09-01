@@ -1,16 +1,24 @@
 # 验收记录
 
+## Hosted 体验账号与自部署模式
+
+实现邀请码注册、scrypt 密码哈希、HttpOnly 会话、登录限速、普通账号一次直发、管理员不限次数、邀请码管理、额度调整和账号停用。额度绑定到服务器工作流，在 X 成功返回草稿 ID 后与草稿记录同一 SQLite 事务扣除；上传或网络失败不扣额度，同一账号不能并行保留多个未完成直发工作流。`DEPLOYMENT_MODE=selfhost` 不要求账号且不限次数。
+
+桥接集成测试使用本地模拟 X OAuth、media、draft 与 publish 服务，真实走完邀请码注册、OAuth callback、媒体上传、草稿创建、额度扣除、草稿发布和第二次工作流拒绝；管理员测试覆盖生成邀请码、读取账号列表和增加额度。AI Agent 自部署提示词包含只读审计、独立候选、密钥、callback、X Developer 设置、真实验收与回滚。
+
 ## 0.2.0 Markdown 工具栏与 X 发布桥
 
 2026-09-01：44 项 Vitest 测试、TypeScript、生产构建通过。列表测试覆盖连续编号、修正粘贴后重复的 `1.`、无序/任务列表继续和空项退出。发布桥本地请求验证了 HttpOnly / SameSite Cookie、`Cache-Control: no-store`、非法 Origin 拒绝、CSRF 拒绝、Client ID 保存及 PKCE 授权 URL 生成。
 
-当前缺少维护者的 X Developer Client ID，尚未执行真实 X OAuth、媒体上传、草稿创建或公开发布。因此 0.2.0 的 X 能力状态为“实现完成、账户联调待验收”，不能把本地桥成功表述为 X 已接受。
+首次部署时尚未取得维护者的 X Developer Client ID，因此当时只验证到 OAuth 前置边界；以下记录保留该阶段事实和后续修复过程。
 
 同日部署构建 `8c6175de9401fdc7` 到 `xeditor.acks.com.cn`：静态容器与发布桥容器均为 healthy，公开 `/health.json` 和 `/api/x/health` 返回 200，OAuth 状态接口返回精确 HTTPS 回调地址并设置 Secure / HttpOnly / SameSite Cookie；公开 JS 包含工具栏、手动发布与直接发布入口。`acks.com.cn`、Watermarker 与 Audio 的跟随跳转最终状态均为 200。浏览器控制环境因原本地错误页的 URL 策略拒绝导航，未取得本轮运行截图；视觉验收仍需人工刷新站点确认。
 
 12:00 用户首次实测发现授权页返回后没有连接账号。服务端证据显示两次 `/authorize` 成功，但没有任何 `/callback` 请求，相关会话保持 pending、token 为 0、草稿为 0；截图时间显示授权尝试早于回调地址配置截图。修复版在状态接口中公开 pending 状态，返回主页时自动恢复发布对话框并提示“未收到 X 回调”；回调 state、取消授权、缺少 code 和 token 交换失败均重定向到可见错误，不再显示无上下文 JSON。真实成功回调仍须在 X Developer Portal 保存精确 URI 后复测。
 
 12:14 再次实测确认 Client ID 与回调地址一致，但服务器仍无 `/callback`。最终定位为离线 Service Worker 对所有 navigation 无条件返回缓存 `/index.html`，在浏览器侧吞掉了 `/api/x/callback?code=...`。修复后 `/api/` 全路径绕过 Service Worker 并直达网络；新增独立 Service Worker 路由测试，验证 OAuth callback 与状态 API 不调用 `respondWith`，普通应用导航和已缓存静态资源仍保留离线能力。
+
+Service Worker 修复部署后，维护者真实完成 X OAuth 授权、媒体上传、Article 草稿创建与正式发布；正文排版、普通图片和表格图片均进入 X Article。该结果由用户在 X 页面确认，说明完整发布链路通过，不再属于“仅本地请求成功”。
 
 状态：**私有预览版本，尚未达到公开发行条件。**
 
@@ -38,7 +46,6 @@
 - 浏览器在首次查看后被安全策略阻止后续自动访问；未尝试通过其他浏览器、端口或代理绕过。
 - 首次浏览器截图发现预览没有更新。已定位并修复 Worker 使用 DOM 依赖入口的问题，并新增生产 Worker 回归；完整浏览器复验仍未完成。
 - 双主题与响应式最终对照截图、中文 IME、性能目标和长会话验证。
-- 真实 X 账号、上传、建稿、发布均未实施或验证。
 
 类型检查、单元测试、HTTP 健康与部署成功都不能替代以上未完成事项。线上 HTTP 记录见下文。不能将该版本称为“全部开发可用”或据此公开仓库。
 

@@ -47,6 +47,7 @@ services:
     environment:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://127.0.0.1:5701}
       X_SESSION_SECRET: ${X_SESSION_SECRET:-}
+      DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-selfhost}
     healthcheck:
       test:
         [

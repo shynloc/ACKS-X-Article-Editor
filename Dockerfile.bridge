@@ -1,7 +1,7 @@
 FROM node:24.15.0-bookworm-slim
 ENV NODE_ENV=production X_BRIDGE_PORT=8787 X_BRIDGE_DB=/data/x-bridge.sqlite
 WORKDIR /app
-COPY server/x-bridge.mjs ./server/x-bridge.mjs
+COPY server/ ./server/
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8787

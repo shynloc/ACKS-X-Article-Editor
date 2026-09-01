@@ -1306,6 +1306,149 @@ dialog::backdrop {
 .x-publish-dialog {
   width: min(650px, calc(100vw - 28px));
 }
+.account-dialog {
+  width: min(720px, calc(100vw - 28px));
+}
+.x-login-gate {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  text-align: center;
+}
+.x-login-gate > svg {
+  color: var(--accent);
+}
+.x-login-gate p {
+  max-width: 470px;
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.direct-allowance {
+  margin: -7px 0 15px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.account-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 4px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+.account-tabs button {
+  padding: 11px;
+  color: var(--muted);
+}
+.account-tabs button[aria-pressed="true"] {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+.account-form {
+  display: grid;
+  gap: 14px;
+}
+.account-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.account-form input,
+.account-password input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--input);
+}
+.account-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.account-card > svg {
+  color: var(--accent);
+}
+.account-card small,
+.admin-user small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.account-password {
+  margin-top: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.account-password summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.account-password[open] {
+  display: grid;
+  gap: 10px;
+}
+.admin-panel {
+  margin-top: 20px;
+}
+.admin-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.new-invite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: 7px;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+}
+.new-invite span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+}
+.new-invite code {
+  padding: 8px;
+  background: var(--accent-soft);
+  overflow-wrap: anywhere;
+}
+.admin-users {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-user > span {
+  flex: 1;
+  min-width: 0;
+}
 .x-connect-card,
 .publish-confirm {
   display: grid;
@@ -1457,6 +1600,11 @@ dialog::backdrop {
     gap: 16px;
   }
   .header-publish-button {
+    width: 38px;
+    padding: 8px;
+    font-size: 0;
+  }
+  .header-account-button {
     width: 38px;
     padding: 8px;
     font-size: 0;
