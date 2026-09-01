@@ -11,7 +11,7 @@
     "test:sites": "node --test tests/sites-worker.test.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm typecheck && pnpm test && pnpm build && node scripts/test-service-worker.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.0",

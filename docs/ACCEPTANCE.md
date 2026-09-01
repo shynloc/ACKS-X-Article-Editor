@@ -10,6 +10,8 @@
 
 12:00 用户首次实测发现授权页返回后没有连接账号。服务端证据显示两次 `/authorize` 成功，但没有任何 `/callback` 请求，相关会话保持 pending、token 为 0、草稿为 0；截图时间显示授权尝试早于回调地址配置截图。修复版在状态接口中公开 pending 状态，返回主页时自动恢复发布对话框并提示“未收到 X 回调”；回调 state、取消授权、缺少 code 和 token 交换失败均重定向到可见错误，不再显示无上下文 JSON。真实成功回调仍须在 X Developer Portal 保存精确 URI 后复测。
 
+12:14 再次实测确认 Client ID 与回调地址一致，但服务器仍无 `/callback`。最终定位为离线 Service Worker 对所有 navigation 无条件返回缓存 `/index.html`，在浏览器侧吞掉了 `/api/x/callback?code=...`。修复后 `/api/` 全路径绕过 Service Worker 并直达网络；新增独立 Service Worker 路由测试，验证 OAuth callback 与状态 API 不调用 `respondWith`，普通应用导航和已缓存静态资源仍保留离线能力。
+
 状态：**私有预览版本，尚未达到公开发行条件。**
 
 ## 0.1.1 剪贴板修复

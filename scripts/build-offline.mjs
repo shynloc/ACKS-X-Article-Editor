@@ -39,7 +39,7 @@ const PATHS=new Set(ASSETS);
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(let i=0;i<ASSETS.length;i+=12)await cache.addAll(ASSETS.slice(i,i+12));})()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{const old=(await caches.keys()).filter(k=>k.startsWith('acks-x-editor-')&&k!==CACHE);for(const key of old.slice(0,-1))await caches.delete(key);})()));
 self.addEventListener('message',event=>{if(event.data?.type==='SKIP_WAITING')self.skipWaiting();});
-self.addEventListener('fetch',event=>{const u=new URL(event.request.url);if(event.request.method!=='GET'||u.origin!==self.location.origin||u.pathname==='/health.json')return;
+self.addEventListener('fetch',event=>{const u=new URL(event.request.url);if(event.request.method!=='GET'||u.origin!==self.location.origin||u.pathname==='/health.json'||u.pathname.startsWith('/api/'))return;
  if(event.request.mode==='navigate'){event.respondWith(caches.open(CACHE).then(async c=>(await c.match('/index.html'))||fetch(event.request)));return;}
  if(PATHS.has(u.pathname))event.respondWith(caches.open(CACHE).then(async c=>(await c.match(u.pathname))||fetch(event.request)));
 });
