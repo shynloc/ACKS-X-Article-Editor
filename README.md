@@ -57,6 +57,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 | 手动发布      | 分别复制标题、富文本正文和单张 PNG；不要求登录                                                                   |
 | 直接发布      | OAuth 2.0 PKCE、X Media Upload、Article Draft、发布前二次确认                                                    |
 | 离线          | 首次完整加载后缓存应用外壳；更新由用户确认；`/api/` 永远直连网络                                                 |
+| 界面语言      | 中文 / English，浏览器语言自动检测，手动切换并本地记忆                                                           |
 | 体验账号      | Hosted 模式邀请码注册、scrypt 密码哈希、普通账号一次直发、管理员不限次数                                         |
 
 ## 两种发布方式
@@ -183,7 +184,10 @@ EDITOR_PORT=5701
 PUBLIC_BASE_URL=https://xeditor.example.com
 X_SESSION_SECRET=替换为刚刚生成的随机值
 DEPLOYMENT_MODE=selfhost
+DEFAULT_LANGUAGE=
 ```
+
+`DEFAULT_LANGUAGE` 可设为 `zh-CN` 或 `en`；留空则按浏览器语言选择。用户仍可在界面顶部随时切换。
 
 > 自部署必须保持 `DEPLOYMENT_MODE=selfhost`。该模式不启用官方体验站的邀请码和一次直发限制，API 用量与费用归部署者自己的 X Developer App。
 

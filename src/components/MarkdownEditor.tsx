@@ -26,6 +26,7 @@ import {
   type LineStyle,
   type TextTransform,
 } from "../core/editorFormatting";
+import { useI18n } from "../i18n";
 
 export interface EditorHandle {
   insert(text: string): void;
@@ -67,11 +68,13 @@ export const MarkdownEditor = forwardRef<
     onImage: (file: File) => void;
   }
 >(({ value, onChange, theme, readOnly, onImage }, ref) => {
+  const { t, language } = useI18n();
   const host = useRef<HTMLDivElement>(null),
     view = useRef<EditorView | undefined>(undefined),
     callbacks = useRef({ onChange, onImage });
   const themeConfig = useRef(new Compartment()),
-    readConfig = useRef(new Compartment());
+    readConfig = useRef(new Compartment()),
+    languageConfig = useRef(new Compartment());
   callbacks.current = { onChange, onImage };
   const apply = (
     transform: (text: string, from: number, to: number) => TextTransform,
@@ -197,7 +200,16 @@ export const MarkdownEditor = forwardRef<
           ]),
           markdown(),
           EditorView.lineWrapping,
-          placeholder("从一个想法开始…\n\n支持 Markdown，也可以拖入本地图片。"),
+          languageConfig.current.of([
+            placeholder(
+              t("从一个想法开始…\n\n支持 Markdown，也可以拖入本地图片。"),
+            ),
+            EditorView.contentAttributes.of({
+              "aria-label": t("Markdown 正文"),
+              "data-testid": "markdown-input",
+              spellcheck: "false",
+            }),
+          ]),
           syntaxHighlighting(
             HighlightStyle.define([
               {
@@ -215,11 +227,6 @@ export const MarkdownEditor = forwardRef<
             EditorView.theme({}, { dark: theme === "dark" }),
           ),
           readConfig.current.of(EditorState.readOnly.of(!!readOnly)),
-          EditorView.contentAttributes.of({
-            "aria-label": "Markdown 正文",
-            "data-testid": "markdown-input",
-            spellcheck: "false",
-          }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged)
               callbacks.current.onChange(update.state.doc.toString());
@@ -274,5 +281,19 @@ export const MarkdownEditor = forwardRef<
       ),
     });
   }, [readOnly]);
+  useEffect(() => {
+    view.current?.dispatch({
+      effects: languageConfig.current.reconfigure([
+        placeholder(
+          t("从一个想法开始…\n\n支持 Markdown，也可以拖入本地图片。"),
+        ),
+        EditorView.contentAttributes.of({
+          "aria-label": t("Markdown 正文"),
+          "data-testid": "markdown-input",
+          spellcheck: "false",
+        }),
+      ]),
+    });
+  }, [language, t]);
   return <div className="markdown-editor" ref={host} />;
 });

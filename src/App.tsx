@@ -69,6 +69,7 @@ import { captureDraft } from "./services/recovery";
 import { buildClipboardBody } from "./core/clipboardBody";
 import { copyBody, copyTitle, copyErrorMessage } from "./services/clipboard";
 import { APP_VERSION } from "./core/version";
+import { useI18n } from "./i18n";
 
 type Panel =
   | "validation"
@@ -96,6 +97,7 @@ function Modal({
   close: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     ref.current?.showModal();
@@ -112,7 +114,11 @@ function Modal({
     >
       <div className="dialog-heading">
         <h2>{title}</h2>
-        <button className="icon-button" aria-label="关闭对话框" onClick={close}>
+        <button
+          className="icon-button"
+          aria-label={t("关闭对话框")}
+          onClick={close}
+        >
           <X size={22} />
         </button>
       </div>
@@ -131,6 +137,7 @@ function formatTime(at?: string) {
     : "尚未保存";
 }
 export function App() {
+  const { t, language, setLanguage } = useI18n();
   const [article, setArticle] = useState<Article | null>(null),
     [library, setLibrary] = useState<Article[]>([]),
     [conversion, setConversion] = useState<Conversion | null>(null),
@@ -743,12 +750,12 @@ export function App() {
     );
   const statusText =
     status === "clean"
-      ? `已保存到本地 · r${article.revision}`
+      ? `${t("已保存到本地")} · r${article.revision}`
       : status === "saving"
-        ? "正在保存到本地…"
+        ? t("正在保存到本地…")
         : status === "error"
-          ? "保存失败 · 请导出恢复包"
-          : "未保存";
+          ? t("保存失败 · 请导出恢复包")
+          : t("未保存");
   return (
     <div className={`app-shell ${sidebar ? "sidebar-visible" : ""}`}>
       <header className="app-header">
@@ -763,52 +770,67 @@ export function App() {
           <FileText size={30} weight="light" />
           <span>ACKS X Article Editor</span>
         </div>
-        <div className="header-context">本地写作</div>
+        <div className="header-context">{t("本地写作")}</div>
         <div className="header-actions">
-          <div className="theme-switch" aria-label="界面主题">
+          <div className="theme-switch" aria-label={t("界面主题")}>
             <button
               aria-pressed={theme === "light"}
-              aria-label="浅色"
+              aria-label={t("浅色")}
               onClick={() => setTheme("light")}
             >
               <Sun size={19} />
-              <span>浅色</span>
+              <span>{t("浅色")}</span>
             </button>
             <button
               aria-pressed={theme === "dark"}
-              aria-label="深色"
+              aria-label={t("深色")}
               onClick={() => setTheme("dark")}
             >
               <Moon size={19} />
-              <span>深色</span>
+              <span>{t("深色")}</span>
+            </button>
+          </div>
+          <div className="language-switch" aria-label="Language">
+            <button
+              aria-pressed={language === "zh-CN"}
+              onClick={() => setLanguage("zh-CN")}
+            >
+              中
+            </button>
+            <button
+              aria-pressed={language === "en"}
+              onClick={() => setLanguage("en")}
+            >
+              EN
             </button>
           </div>
           <button
             className="quiet-button validation-trigger"
             onClick={() => setPanel("validation")}
           >
-            校验{errors.length > 0 && <span className="error-dot" />}
+            {t("校验")}
+            {errors.length > 0 && <span className="error-dot" />}
           </button>
           <button
             className="secondary-button header-account-button"
             onClick={() => setPanel("account")}
           >
             <UserCircle size={18} />
-            账号
+            {t("账号")}
           </button>
           <button
             className="secondary-button header-publish-button"
             onClick={() => setPanel("manual-x")}
           >
             <XLogo size={17} />
-            手动发布到 X
+            {t("手动发布到 X")}
           </button>
           <button
             className="primary-button header-publish-button"
             onClick={() => setPanel("direct-x")}
           >
             <PaperPlaneTilt size={17} />
-            直接发布到 X
+            {t("直接发布到 X")}
           </button>
           <button
             className="primary-button"
@@ -816,16 +838,16 @@ export function App() {
             disabled={busy}
           >
             <DownloadSimple className="compact-icon" size={17} />
-            导出资源包
+            {t("导出资源包")}
           </button>
         </div>
       </header>
       <aside className="sidebar">
         <div className="library-heading">
-          <h2>文稿库</h2>
+          <h2>{t("文稿库")}</h2>
           <button
             className="icon-button"
-            aria-label="关于与存储设置"
+            aria-label={t("关于与存储设置")}
             onClick={() => setPanel("about")}
           >
             <DotsThree size={23} />
@@ -834,8 +856,8 @@ export function App() {
         <label className="search-field">
           <MagnifyingGlass size={18} />
           <input
-            aria-label="搜索文稿"
-            placeholder="搜索文稿"
+            aria-label={t("搜索文稿")}
+            placeholder={t("搜索文稿")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -843,11 +865,11 @@ export function App() {
         <div className="library-actions">
           <button onClick={create} disabled={busy}>
             <Plus size={20} />
-            新建
+            {t("新建")}
           </button>
           <button onClick={() => fileInput.current?.click()} disabled={busy}>
             <UploadSimple size={20} />
-            导入
+            {t("导入")}
           </button>
         </div>
         <nav className="document-list" aria-label="文稿列表">
@@ -874,36 +896,36 @@ export function App() {
               aria-pressed={filter === "active"}
               onClick={() => setFilter("active")}
             >
-              全部
+              {t("全部")}
             </button>
             <button
               aria-pressed={filter === "archived"}
               onClick={() => setFilter("archived")}
             >
-              归档
+              {t("归档")}
             </button>
             <button
               aria-pressed={filter === "deleted"}
               onClick={() => setFilter("deleted")}
             >
-              回收站
+              {t("回收站")}
             </button>
           </div>
           <p>
             <LockSimple size={18} />
-            内容仅保存在此浏览器
+            {t("内容仅保存在此浏览器")}
           </p>
           <button className="storage-link" onClick={() => setPanel("about")}>
             {offline.online ? (
               offline.ready ? (
-                "已准备好离线使用"
+                t("已准备好离线使用")
               ) : (
-                "离线资源准备中"
+                t("离线资源准备中")
               )
             ) : (
               <>
                 <WifiSlash size={14} />
-                离线工作中
+                {t("离线工作中")}
               </>
             )}
           </button>
@@ -914,37 +936,37 @@ export function App() {
           aria-pressed={tab === "source"}
           onClick={() => setTab("source")}
         >
-          Markdown 源文
+          {t("Markdown 源文")}
         </button>
         <button
           aria-pressed={tab === "preview"}
           onClick={() => setTab("preview")}
         >
-          X 结构预览
+          {t("X 结构预览")}
         </button>
       </div>
       <main className={`workspace show-${tab}`}>
         <section className="editor-pane" aria-label="编辑区">
           <div className="pane-heading">
-            <h2>Markdown 源文</h2>
+            <h2>{t("Markdown 源文")}</h2>
             <div className="pane-actions">
               <button
                 className="icon-button"
-                aria-label="历史版本"
+                aria-label={t("历史版本")}
                 onClick={() => setPanel("history")}
               >
                 <ClockCounterClockwise size={19} />
               </button>
               <button
                 className="icon-button"
-                aria-label="资源管理"
+                aria-label={t("资源管理")}
                 onClick={() => setPanel("assets")}
               >
                 <ImageSquare size={20} />
               </button>
               <button
                 className="icon-button"
-                aria-label="文稿操作"
+                aria-label={t("文稿操作")}
                 onClick={() => setPanel("menu")}
               >
                 <DotsThree size={22} />
@@ -954,8 +976,8 @@ export function App() {
           <div className="editor-top">
             <input
               className="title-input"
-              aria-label="文章标题"
-              placeholder="给这篇文章起个名字"
+              aria-label={t("文章标题")}
+              placeholder={t("给这篇文章起个名字")}
               value={article.title}
               onChange={(e) => edit({ title: e.target.value })}
             />
@@ -981,7 +1003,7 @@ export function App() {
                 disabled={busy}
               >
                 <ArrowsOutSimple size={14} />
-                {article.coverId ? "更换封面" : "选择图片"}
+                {article.coverId ? t("更换封面") : t("选择图片")}
               </button>
               <button
                 className="quiet-button insert-image"
@@ -989,7 +1011,7 @@ export function App() {
                 disabled={busy}
               >
                 <Plus size={15} />
-                正文图
+                {t("正文图")}
               </button>
             </div>
           </div>
@@ -1008,9 +1030,9 @@ export function App() {
             }}
           />
         </section>
-        <section className="preview-pane" aria-label="预览区">
+        <section className="preview-pane" aria-label={t("预览区")}>
           <div className="pane-heading preview-heading">
-            <h2>X 结构预览</h2>
+            <h2>{t("X 结构预览")}</h2>
             <div className="preview-copy-actions" data-copy-ui="true">
               <button
                 className="quiet-button"
@@ -1018,7 +1040,7 @@ export function App() {
                 onClick={() => copyForX("title")}
               >
                 <Copy size={14} />
-                复制标题
+                {t("复制标题")}
               </button>
               <button
                 className="secondary-button copy-body-button"
@@ -1026,15 +1048,16 @@ export function App() {
                 onClick={() => copyForX("body")}
               >
                 <Copy size={15} />
-                复制正文
+                {t("复制正文")}
               </button>
             </div>
-            <span>结构预览，非官方渲染</span>
+            <span>{t("结构预览，非官方渲染")}</span>
           </div>
           <div className="copy-guidance" data-copy-ui="true">
             <span>
-              正文不含标题、封面和图片。表格/代码请用下方“复制图片”或“下载
-              PNG”。
+              {t(
+                "正文不含标题、封面和图片。表格/代码请用下方“复制图片”或“下载 PNG”。",
+              )}
             </span>
             {copyFeedback && <p role="status">{copyFeedback}</p>}
           </div>
@@ -1053,8 +1076,12 @@ export function App() {
             className="conversion-summary"
             onClick={() => setPanel("validation")}
           >
-            <span>图片化 {renderCount}</span>
-            <span>降级 {warnings.length}</span>
+            <span>
+              {t("图片化")} {renderCount}
+            </span>
+            <span>
+              {t("降级")} {warnings.length}
+            </span>
             <span
               className={
                 errors.length + Object.keys(renderErrors).length
@@ -1062,7 +1089,7 @@ export function App() {
                   : ""
               }
             >
-              待修复 {errors.length + Object.keys(renderErrors).length}
+              {t("待修复")} {errors.length + Object.keys(renderErrors).length}
             </span>
             <CaretRight size={15} />
           </button>
@@ -1074,30 +1101,30 @@ export function App() {
           onClick={() =>
             status === "error" ? setPanel("export") : setPanel("history")
           }
-          title={`保存时间：${formatTime(article.updatedAt)}`}
+          title={`${t("保存时间")}：${formatTime(article.updatedAt)}`}
         >
           <span className="status-dot" />
           {statusText}
         </button>
         <span className="export-state">
           {article.lastExportRevision
-            ? `上次生成下载 r${article.lastExportRevision}`
-            : "尚未导出备份"}
+            ? `${t("上次生成下载")} r${article.lastExportRevision}`
+            : t("尚未导出备份")}
         </span>
         <span className="word-count">
-          {Array.from(article.body).length.toLocaleString()} 字符 ·{" "}
-          {conversion?.nodes.length ?? 0} 块
+          {Array.from(article.body).length.toLocaleString()} {t("字符")} ·{" "}
+          {conversion?.nodes.length ?? 0} {t("块")}
         </span>
-        <span className="remote-state">尚未创建 X 草稿</span>
+        <span className="remote-state">{t("尚未创建 X 草稿")}</span>
       </footer>
       {error && (
         <div className="error-banner" role="alert">
           <WarningCircle size={19} />
           <span>{error}</span>
-          {conflict && <button onClick={duplicate}>另存副本</button>}
+          {conflict && <button onClick={duplicate}>{t("另存副本")}</button>}
           <button
             className="icon-button"
-            aria-label="关闭错误提示"
+            aria-label={t("关闭错误提示")}
             onClick={() => setError("")}
           >
             <X size={17} />
@@ -1112,18 +1139,18 @@ export function App() {
       )}
       {offline.update && (
         <div className="update-banner">
-          有新版本可用
+          {t("有新版本可用")}
           <button
             onClick={async () => {
               try {
                 await flush();
                 offline.update?.();
               } catch {
-                setError("请先导出恢复包，再更新应用。");
+                setError(t("请先导出恢复包，再更新应用。"));
               }
             }}
           >
-            保存并更新
+            {t("保存并更新")}
           </button>
         </div>
       )}
@@ -1171,14 +1198,16 @@ export function App() {
         }}
       />
       {panel === "validation" && (
-        <Modal title="转换校验" close={() => setPanel(null)}>
+        <Modal title={t("转换校验")} close={() => setPanel(null)}>
           <p className="dialog-intro">
-            只校验本地结构，不代表 X 已接受内容。点击问题可定位到源文。
+            {t("只校验本地结构，不代表 X 已接受内容。点击问题可定位到源文。")}
           </p>
           <div className="report-counts">
-            <span>{conversion?.nodes.length ?? 0} 个正文块</span>
-            <span>{renderCount} 项图片化</span>
-            <span>{warnings.length} 项降级</span>
+            <span>
+              {t("{count} 个正文块", { count: conversion?.nodes.length ?? 0 })}
+            </span>
+            <span>{t("{count} 项图片化", { count: renderCount })}</span>
+            <span>{t("{count} 项降级", { count: warnings.length })}</span>
           </div>
           {issues.length ? (
             issues.map((i, k) => (
@@ -1197,9 +1226,9 @@ export function App() {
                   <CheckCircle size={20} />
                 )}
                 <span>
-                  {i.message}
+                  {t(i.message)}
                   <small>
-                    第 {i.line} 行 · {i.code}
+                    {t("第 {line} 行", { line: i.line })} · {i.code}
                   </small>
                 </span>
                 <CaretRight size={17} />
@@ -1208,7 +1237,7 @@ export function App() {
           ) : (
             <div className="success-note">
               <CheckCircle size={24} />
-              当前本地结构未发现问题。
+              {t("当前本地结构未发现问题。")}
             </div>
           )}
           {Object.entries(renderErrors).map(([id, message]) => (
@@ -1217,21 +1246,24 @@ export function App() {
             </p>
           ))}
           <details className="json-details">
-            <summary>查看转换结构 JSON</summary>
+            <summary>{t("查看转换结构 JSON")}</summary>
             <pre>{JSON.stringify(conversion, null, 2)}</pre>
           </details>
         </Modal>
       )}
       {panel === "manual-x" && (
-        <Modal title="手动发布到 X" close={() => setPanel(null)}>
+        <Modal title={t("手动发布到 X")} close={() => setPanel(null)}>
           <p className="dialog-intro">
-            X 没有资源包导入入口。按下面顺序把标题、正文和图片放入 X Article
-            编辑器；你的内容不会由本站发送给 X。
+            {t(
+              "X 没有资源包导入入口。按下面顺序把标题、正文和图片放入 X Article 编辑器；你的内容不会由本站发送给 X。",
+            )}
           </p>
           <ol className="publish-steps">
             <li>
-              <strong>打开 X Articles</strong>
-              <span>未登录时 X 会先显示登录页；登录后进入 Articles 页面。</span>
+              <strong>{t("打开 X Articles")}</strong>
+              <span>
+                {t("未登录时 X 会先显示登录页；登录后进入 Articles 页面。")}
+              </span>
               <a
                 className="secondary-button"
                 href="https://x.com/compose/articles"
@@ -1239,11 +1271,11 @@ export function App() {
                 rel="noopener noreferrer"
               >
                 <ArrowSquareOut size={17} />
-                打开 X Articles
+                {t("打开 X Articles")}
               </a>
             </li>
             <li>
-              <strong>复制并粘贴标题</strong>
+              <strong>{t("复制并粘贴标题")}</strong>
               <button
                 className="secondary-button"
                 disabled={copying || !article.title.trim()}
@@ -1254,8 +1286,8 @@ export function App() {
               </button>
             </li>
             <li>
-              <strong>复制并粘贴正文</strong>
-              <span>正文不含标题、封面和图片，粘贴后请检查格式。</span>
+              <strong>{t("复制并粘贴正文")}</strong>
+              <span>{t("正文不含标题、封面和图片，粘贴后请检查格式。")}</span>
               <button
                 className="primary-button"
                 disabled={copying || !article.body.trim()}
@@ -1266,10 +1298,11 @@ export function App() {
               </button>
             </li>
             <li>
-              <strong>逐张插入图片</strong>
+              <strong>{t("逐张插入图片")}</strong>
               <span>
-                表格、代码块和本地图片请在右侧预览中使用“复制图片”或“下载
-                PNG”。外链图床地址只能成为链接，不能替代 X 原生图片上传。
+                {t(
+                  "表格、代码块和本地图片请在右侧预览中使用“复制图片”或“下载 PNG”。外链图床地址只能成为链接，不能替代 X 原生图片上传。",
+                )}
               </span>
             </li>
           </ol>
@@ -1289,10 +1322,11 @@ export function App() {
         <AccountDialog close={() => setPanel(null)} onNotice={setNotice} />
       )}
       {panel === "export" && (
-        <Modal title="导出与备份" close={() => !busy && setPanel(null)}>
+        <Modal title={t("导出与备份")} close={() => !busy && setPanel(null)}>
           <p className="dialog-intro">
-            导出当前版本的
-            Markdown、完整文稿、转换结构和图片。下载完成后可在其他浏览器导入恢复。
+            {t(
+              "导出当前版本的 Markdown、完整文稿、转换结构和图片。下载完成后可在其他浏览器导入恢复。",
+            )}
           </p>
           <div className="export-preview">
             <FileText size={34} />
@@ -1372,7 +1406,7 @@ export function App() {
         </Modal>
       )}
       {panel === "history" && (
-        <Modal title="本地历史版本" close={() => setPanel(null)}>
+        <Modal title={t("本地历史版本")} close={() => setPanel(null)}>
           <p className="dialog-intro">
             恢复会创建新版本，不覆盖历史。最近 24 小时保留细粒度记录，之后按 5
             分钟压缩保留 30 天；命名与导入快照保留。
@@ -1429,7 +1463,7 @@ export function App() {
         </Modal>
       )}
       {panel === "assets" && (
-        <Modal title="图片与资源" close={() => setPanel(null)}>
+        <Modal title={t("图片与资源")} close={() => setPanel(null)}>
           <p className="dialog-intro">
             图片保存在本地。修改说明不会自动上传到
             X；切换界面主题不会改写原图或派生图片。
@@ -1500,7 +1534,7 @@ export function App() {
         </Modal>
       )}
       {panel === "menu" && (
-        <Modal title="文稿操作" close={() => setPanel(null)}>
+        <Modal title={t("文稿操作")} close={() => setPanel(null)}>
           <button className="menu-row" onClick={duplicate}>
             另存为副本 <CaretRight />
           </button>
@@ -1532,7 +1566,7 @@ export function App() {
         </Modal>
       )}
       {panel === "about" && (
-        <Modal title="关于与本地存储" close={() => setPanel(null)}>
+        <Modal title={t("关于与本地存储")} close={() => setPanel(null)}>
           <div className="about-brand">
             <FileText size={38} />
             <h3>ACKS X Article Editor</h3>

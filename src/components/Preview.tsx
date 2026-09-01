@@ -16,6 +16,7 @@ import {
 import { db } from "../services/database";
 import { getRenderParts } from "../services/archive";
 import { ImageTransfer } from "./ImageTransfer";
+import { useI18n } from "../i18n";
 export function useAssetUrl(id?: string) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -99,6 +100,7 @@ function GeneratedImage({
   onError: (id: string, message?: string) => void;
   ordinal: number;
 }) {
+  const { t } = useI18n();
   const [urls, setUrls] = useState<string[]>([]),
     [parts, setParts] = useState<RenderedPart[]>([]),
     [error, setError] = useState("");
@@ -152,14 +154,16 @@ function GeneratedImage({
           </div>
         ))
       ) : (
-        <div className="render-pending">正在本地生成图片…</div>
+        <div className="render-pending">{t("正在本地生成图片…")}</div>
       )}
       <figcaption>
-        <span className="conversion-badge">将作为图片</span>
+        <span className="conversion-badge">{t("将作为图片")}</span>
         {urls.length > 1 && <small>{urls.length} 张分片</small>}
         <details>
           <summary>
-            查看原始{node.renderKind === "table" ? "表格" : "代码"}
+            {t("查看原始{kind}", {
+              kind: t(node.renderKind === "table" ? "表格" : "代码"),
+            })}
           </summary>
           <pre>{node.source}</pre>
         </details>
@@ -178,6 +182,7 @@ function LocalImageFigure({
   ordinal: number;
   onLocate: (from: number, to: number) => void;
 }) {
+  const { t } = useI18n();
   const asset = article.assets.find((a) => a.id === node.assetId),
     caption = node.caption || asset?.caption;
   return (
@@ -204,8 +209,8 @@ function LocalImageFigure({
           onClick={() => onLocate(node.from, node.to)}
         >
           <ImageSquare size={28} />
-          缺少图片：{node.path}
-          <small>在资源管理中重新关联本地文件</small>
+          {t("缺少图片")}：{node.path}
+          <small>{t("在资源管理中重新关联本地文件")}</small>
         </button>
       )}
       {caption && <figcaption>{caption}</figcaption>}

@@ -29,6 +29,7 @@ import {
   uploadXMedia,
   type XStatus,
 } from "../services/xBridge";
+import { localizeKnownMessage, useI18n } from "../i18n";
 
 export function XPublishDialog({
   article,
@@ -43,6 +44,7 @@ export function XPublishDialog({
   onNotice: (message: string) => void;
   onRequireAccount: () => void;
 }) {
+  const { t, language } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState<XStatus>();
   const [clientId, setClientId] = useState("");
@@ -55,6 +57,7 @@ export function XPublishDialog({
     workflowId: string;
   }>();
   const [confirmation, setConfirmation] = useState("");
+  const confirmationWord = language === "en" ? "publish" : "发布";
   const refresh = async () => {
     const next = await getXStatus();
     setStatus(next);
@@ -77,7 +80,12 @@ export function XPublishDialog({
   useEffect(() => {
     dialog.current?.showModal();
     refresh().catch((e) =>
-      setError(e instanceof Error ? e.message : String(e)),
+      setError(
+        localizeKnownMessage(
+          e instanceof Error ? e.message : String(e),
+          language,
+        ),
+      ),
     );
     return () => dialog.current?.close();
   }, []);
@@ -87,7 +95,12 @@ export function XPublishDialog({
     try {
       await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        localizeKnownMessage(
+          e instanceof Error ? e.message : String(e),
+          language,
+        ),
+      );
     } finally {
       setBusy("");
     }
@@ -133,7 +146,11 @@ export function XPublishDialog({
         if (media[id]) return;
         const stored = await db.assets.get(id);
         if (!stored) throw new Error("本地图片资源缺失，请重新关联。");
-        setProgress(`正在上传图片 ${Object.keys(media).length + 1}…`);
+        setProgress(
+          t("正在上传图片 {number}…", {
+            number: Object.keys(media).length + 1,
+          }),
+        );
         media[id] = await uploadXMedia(stored.blob, workflowId);
       };
       if (article.coverId) await uploadAsset(article.coverId);
@@ -153,7 +170,11 @@ export function XPublishDialog({
         for (const [index, part] of parts.entries()) {
           const id = `render-${node.id}-${index}`;
           setProgress(
-            `正在上传${node.renderKind === "table" ? "表格" : "代码"}图片 ${index + 1}/${parts.length}…`,
+            t("正在上传{kind}图片 {current}/{total}…", {
+              kind: t(node.renderKind === "table" ? "表格" : "代码"),
+              current: index + 1,
+              total: parts.length,
+            }),
           );
           media[id] = await uploadXMedia(part.blob, workflowId);
           nodes.push({
@@ -174,7 +195,7 @@ export function XPublishDialog({
         media,
       );
       const requestHash = await sha256(JSON.stringify(request));
-      setProgress("正在创建 X Article 草稿…");
+      setProgress(t("正在创建 X Article 草稿…"));
       const result = await createXDraft(request, requestHash, workflowId);
       setDraft({ articleId: result.articleId, requestHash, workflowId });
       setProgress("");
@@ -182,15 +203,15 @@ export function XPublishDialog({
     });
   const publish = () =>
     run("publish", async () => {
-      if (!draft || confirmation !== "发布")
-        throw new Error("请输入“发布”确认公开操作。");
+      if (!draft || confirmation !== confirmationWord)
+        throw new Error(t("请输入确认词以确认公开操作。"));
       const result = await publishXDraft(
         draft.articleId,
         draft.requestHash,
         draft.workflowId,
       );
       onNotice(
-        `X Article 已发布${result.postId ? ` · Post ${result.postId}` : ""}`,
+        `${t("X Article 已发布")}${result.postId ? ` · Post ${result.postId}` : ""}`,
       );
       close();
     });
@@ -198,17 +219,17 @@ export function XPublishDialog({
     <dialog
       ref={dialog}
       className="x-publish-dialog"
-      aria-label="直接发布到 X"
+      aria-label={t("直接发布到 X")}
       onCancel={close}
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) close();
       }}
     >
       <div className="dialog-heading">
-        <h2>直接发布到 X</h2>
+        <h2>{t("直接发布到 X")}</h2>
         <button
           className="icon-button"
-          aria-label="关闭对话框"
+          aria-label={t("关闭对话框")}
           onClick={close}
           disabled={!!busy}
         >
@@ -217,17 +238,18 @@ export function XPublishDialog({
       </div>
       <div className="dialog-content">
         <p className="dialog-intro">
-          通过 X 官方 OAuth 和 Articles API
-          上传图片、创建草稿，再由你确认是否公开发布。本站不会要求 Client
-          Secret，也不会把访问令牌交给浏览器。授权只连接账号，不会自动发布文章。
+          {t(
+            "通过 X 官方 OAuth 和 Articles API 上传图片、创建草稿，再由你确认是否公开发布。本站不会要求 Client Secret，也不会把访问令牌交给浏览器。授权只连接账号，不会自动发布文章。",
+          )}
         </p>
         {status?.deploymentMode === "hosted" && !status.account ? (
           <div className="x-login-gate">
             <LockSimple size={30} />
-            <strong>直接发布需要体验账号</strong>
+            <strong>{t("直接发布需要体验账号")}</strong>
             <p>
-              登录后可以使用自己的 X Developer Client
-              ID。普通体验账号有一次完整直发额度；手动发布不受影响。
+              {t(
+                "登录后可以使用自己的 X Developer Client ID。普通体验账号有一次完整直发额度；手动发布不受影响。",
+              )}
             </p>
             <button
               className="primary-button wide"
@@ -236,7 +258,7 @@ export function XPublishDialog({
                 onRequireAccount();
               }}
             >
-              登录或使用邀请码注册
+              {t("登录或使用邀请码注册")}
             </button>
           </div>
         ) : !status?.connected ? (
@@ -244,8 +266,9 @@ export function XPublishDialog({
             {status?.pending && (
               <p className="oauth-pending-note" role="status">
                 <WarningCircle />
-                上次授权没有收到 X
-                回调。请确认开发者后台已经保存精确回调地址，再重新发起授权。
+                {t(
+                  "上次授权没有收到 X 回调。请确认开发者后台已经保存精确回调地址，再重新发起授权。",
+                )}
               </p>
             )}
             <label>
@@ -253,16 +276,16 @@ export function XPublishDialog({
               <input
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                placeholder="从 X Developer Portal 复制 Client ID"
+                placeholder={t("从 X Developer Portal 复制 Client ID")}
                 autoComplete="off"
               />
             </label>
             <div className="callback-field">
-              <span>OAuth 2.0 回调地址</span>
-              <code>{status?.redirectUri || "正在读取…"}</code>
+              <span>{t("OAuth 2.0 回调地址")}</span>
+              <code>{status?.redirectUri || t("正在读取…")}</code>
               <button
                 className="icon-button"
-                aria-label="复制回调地址"
+                aria-label={t("复制回调地址")}
                 onClick={() =>
                   status?.redirectUri &&
                   navigator.clipboard.writeText(status.redirectUri)
@@ -272,8 +295,10 @@ export function XPublishDialog({
               </button>
             </div>
             <p className="privacy-note">
-              <LockSimple />在 X Developer Portal 创建 OAuth 2.0 Public Client /
-              SPA，并将上面的地址设为精确回调地址。所需权限：tweet.read、tweet.write、users.read、media.write、offline.access。
+              <LockSimple />
+              {t(
+                "在 X Developer Portal 创建 OAuth 2.0 Public Client / SPA，并将上面的地址设为精确回调地址。所需权限：tweet.read、tweet.write、users.read、media.write、offline.access。",
+              )}
             </p>
             <button
               className="primary-button wide"
@@ -282,17 +307,17 @@ export function XPublishDialog({
             >
               <Plug />
               {busy === "connect"
-                ? "正在跳转 X 授权…"
+                ? t("正在跳转 X 授权…")
                 : status?.pending
-                  ? "重新发起 X 授权"
-                  : "保存并连接 X"}
+                  ? t("重新发起 X 授权")
+                  : t("保存并连接 X")}
             </button>
             <a
               href="https://developer.x.com/en/portal/dashboard"
               target="_blank"
               rel="noopener noreferrer"
             >
-              打开 X Developer Portal
+              {t("打开 X Developer Portal")}
             </a>
           </div>
         ) : (
@@ -300,7 +325,7 @@ export function XPublishDialog({
             <div className="x-account">
               <CheckCircle size={22} />
               <span>
-                已连接 {status.user ? `@${status.user.username}` : "X 账号"}
+                {t("已连接")} {status.user ? `@${status.user.username}` : "X"}
               </span>
               <button
                 className="quiet-button"
@@ -312,15 +337,18 @@ export function XPublishDialog({
                   })
                 }
               >
-                断开
+                {t("断开")}
               </button>
             </div>
             {status.account && (
               <p className="direct-allowance">
                 {status.account.role === "admin" ||
                 status.account.directRemaining < 0
-                  ? "管理员 · 直接发布不限次数"
-                  : `体验额度：剩余 ${status.account.directRemaining} / ${status.account.directLimit} 次`}
+                  ? t("管理员 · 直接发布不限次数")
+                  : t("体验额度：剩余 {remaining} / {limit} 次", {
+                      remaining: status.account.directRemaining,
+                      limit: status.account.directLimit,
+                    })}
               </p>
             )}
             {!draft ? (
@@ -331,36 +359,38 @@ export function XPublishDialog({
               >
                 <PaperPlaneTilt />
                 {busy === "draft"
-                  ? progress || "正在准备草稿…"
-                  : "上传资源并创建 X 草稿"}
+                  ? progress || t("正在准备草稿…")
+                  : t("上传资源并创建 X 草稿")}
               </button>
             ) : (
               <div className="publish-confirm">
                 <CheckCircle size={28} />
-                <strong>X 草稿已创建</strong>
+                <strong>{t("X 草稿已创建")}</strong>
                 <code>{draft.articleId}</code>
                 <p>
-                  草稿不会公开。若已在 X 中检查并确定发布，请在下面输入“发布”。
+                  {t(
+                    "草稿不会公开。若已在 X 中检查并确定发布，请在下面输入确认词。",
+                  )}
                 </p>
                 <input
                   value={confirmation}
                   onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder="输入：发布"
+                  placeholder={`${t("输入")}: ${confirmationWord}`}
                   autoComplete="off"
                 />
                 <button
                   className="primary-button"
-                  disabled={confirmation !== "发布" || !!busy}
+                  disabled={confirmation !== confirmationWord || !!busy}
                   onClick={publish}
                 >
-                  {busy === "publish" ? "正在发布…" : "确认公开发布到 X"}
+                  {busy === "publish" ? t("正在发布…") : t("确认公开发布到 X")}
                 </button>
                 <a
                   href="https://x.com/compose/articles"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  先到 X Articles 检查草稿
+                  {t("先到 X Articles 检查草稿")}
                 </a>
               </div>
             )}
@@ -373,8 +403,9 @@ export function XPublishDialog({
           </p>
         )}
         <p className="fine-print">
-          X API 能力、访问级别和配额由 X 决定。成功创建本地请求不代表 X
-          已接受；只有返回草稿 ID 或 Post ID 才视为对应步骤完成。
+          {t(
+            "X API 能力、访问级别和配额由 X 决定。成功创建本地请求不代表 X 已接受；只有返回草稿 ID 或 Post ID 才视为对应步骤完成。",
+          )}
         </p>
       </div>
     </dialog>

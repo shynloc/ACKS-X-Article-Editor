@@ -32,6 +32,7 @@ import {
   WaveSine,
 } from "@phosphor-icons/react";
 import type { EditorHandle } from "./MarkdownEditor";
+import { useI18n } from "../i18n";
 
 function Tool({
   label,
@@ -42,12 +43,13 @@ function Tool({
   action: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       className="markdown-tool"
-      aria-label={label}
-      title={label}
+      aria-label={t(label)}
+      title={t(label)}
       onClick={action}
     >
       {children}
@@ -61,8 +63,9 @@ function Group({
   label: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
-    <div className="markdown-tool-group" role="group" aria-label={label}>
+    <div className="markdown-tool-group" role="group" aria-label={t(label)}>
       {children}
     </div>
   );
@@ -74,6 +77,7 @@ export function MarkdownToolbar({
   editor: RefObject<EditorHandle | null>;
   onImage: () => void;
 }) {
+  const { t } = useI18n();
   const command = (run: (handle: EditorHandle) => void) => () => {
     if (editor.current) run(editor.current);
   };
@@ -81,7 +85,7 @@ export function MarkdownToolbar({
     <div
       className="markdown-toolbar"
       role="toolbar"
-      aria-label="Markdown 格式工具栏"
+      aria-label={t("Markdown 格式工具栏")}
     >
       <Group label="撤销与重做">
         <Tool label="撤销 (⌘Z)" action={command((e) => e.undo())}>

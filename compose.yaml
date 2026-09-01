@@ -2,7 +2,10 @@ name: acks-x-article-editor
 services:
   editor:
     image: ${EDITOR_IMAGE:-acks-x-article-editor:local}
-    build: .
+    build:
+      context: .
+      args:
+        VITE_DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-}
     restart: unless-stopped
     ports:
       - "127.0.0.1:${EDITOR_PORT:-5701}:8080"

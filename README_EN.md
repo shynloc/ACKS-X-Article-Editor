@@ -57,6 +57,7 @@ The project introduction is included as the default editor template: [view the M
 | Manual publishing     | Separate title, rich body, and individual PNG copy actions; no account required                                                                   |
 | Direct publishing     | OAuth 2.0 PKCE, X Media Upload, Article Draft, and a separate final publish confirmation                                                          |
 | Offline use           | Application shell cached after the first full load; updates require confirmation; `/api/` always bypasses the Service Worker                      |
+| Interface language    | Chinese / English, browser-language detection, manual switch, and local persistence                                                               |
 | Hosted trial accounts | Invite registration, scrypt password hashing, one direct workflow for trial users, unlimited workflows for administrators                         |
 
 ## Two publishing workflows
@@ -183,7 +184,10 @@ EDITOR_PORT=5701
 PUBLIC_BASE_URL=https://xeditor.example.com
 X_SESSION_SECRET=replace-with-the-random-value-you-just-generated
 DEPLOYMENT_MODE=selfhost
+DEFAULT_LANGUAGE=
 ```
+
+Set `DEFAULT_LANGUAGE` to `zh-CN` or `en`, or leave it empty to follow the browser language. Users can always switch from the header.
 
 > Keep `DEPLOYMENT_MODE=selfhost` for self-hosting. Self-hosted instances do not enable the hosted demo's invite or one-workflow restriction. API usage and billing belong to the deployer's own X Developer App.
 

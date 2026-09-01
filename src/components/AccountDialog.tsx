@@ -23,6 +23,7 @@ import {
   type XAccount,
   type XStatus,
 } from "../services/xBridge";
+import { localizeKnownMessage, useI18n } from "../i18n";
 
 export function AccountDialog({
   close,
@@ -31,6 +32,7 @@ export function AccountDialog({
   close: () => void;
   onNotice: (message: string) => void;
 }) {
+  const { t, language } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState<XStatus>();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -59,7 +61,12 @@ export function AccountDialog({
   useEffect(() => {
     dialog.current?.showModal();
     refresh().catch((e) =>
-      setError(e instanceof Error ? e.message : String(e)),
+      setError(
+        localizeKnownMessage(
+          e instanceof Error ? e.message : String(e),
+          language,
+        ),
+      ),
     );
     return () => dialog.current?.close();
   }, []);
@@ -69,7 +76,12 @@ export function AccountDialog({
     try {
       await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        localizeKnownMessage(
+          e instanceof Error ? e.message : String(e),
+          language,
+        ),
+      );
     } finally {
       setBusy(false);
     }
@@ -81,24 +93,24 @@ export function AccountDialog({
       setPassword("");
       setInviteCode("");
       await refresh();
-      onNotice(mode === "login" ? "登录成功" : "账号注册成功");
+      onNotice(t(mode === "login" ? "登录成功" : "账号注册成功"));
     });
   const account = status?.account;
   return (
     <dialog
       ref={dialog}
       className="account-dialog"
-      aria-label="体验账号"
+      aria-label={t("体验账号")}
       onCancel={close}
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) close();
       }}
     >
       <div className="dialog-heading">
-        <h2>{account ? "体验账号" : "登录编辑器"}</h2>
+        <h2>{account ? t("体验账号") : t("登录编辑器")}</h2>
         <button
           className="icon-button"
-          aria-label="关闭对话框"
+          aria-label={t("关闭对话框")}
           onClick={close}
           disabled={busy}
         >
@@ -109,7 +121,7 @@ export function AccountDialog({
         {status?.deploymentMode === "selfhost" ? (
           <div className="success-note">
             <CheckCircle />
-            当前为自部署模式，直接发布不受体验账号额度限制。
+            {t("当前为自部署模式，直接发布不受体验账号额度限制。")}
           </div>
         ) : account ? (
           <>
@@ -123,8 +135,11 @@ export function AccountDialog({
                 <strong>{account.username}</strong>
                 <small>
                   {account.role === "admin"
-                    ? "管理员 · 直接发布不限次数"
-                    : `体验账号 · 已用 ${account.directUsed}/${account.directLimit} 次`}
+                    ? t("管理员 · 直接发布不限次数")
+                    : t("体验账号 · 已用 {used}/{limit} 次", {
+                        used: account.directUsed,
+                        limit: account.directLimit,
+                      })}
                 </small>
               </div>
               <button
@@ -133,31 +148,31 @@ export function AccountDialog({
                 onClick={() =>
                   run(async () => {
                     await logoutAccount();
-                    onNotice("已退出登录");
+                    onNotice(t("已退出登录"));
                     close();
                   })
                 }
               >
                 <SignOut />
-                退出
+                {t("退出")}
               </button>
             </div>
             <details className="account-password">
               <summary>
                 <Key />
-                修改密码
+                {t("修改密码")}
               </summary>
               <input
                 type="password"
                 autoComplete="current-password"
-                placeholder="当前密码"
+                placeholder={t("当前密码")}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
               />
               <input
                 type="password"
                 autoComplete="new-password"
-                placeholder="新密码，至少 12 位"
+                placeholder={t("新密码，至少 12 位")}
                 value={nextPassword}
                 onChange={(e) => setNextPassword(e.target.value)}
               />
@@ -169,11 +184,11 @@ export function AccountDialog({
                     await changeAccountPassword(currentPassword, nextPassword);
                     setCurrentPassword("");
                     setNextPassword("");
-                    onNotice("密码已更新");
+                    onNotice(t("密码已更新"));
                   })
                 }
               >
-                更新密码
+                {t("更新密码")}
               </button>
             </details>
             {account.role === "admin" && (
@@ -181,7 +196,7 @@ export function AccountDialog({
                 <div className="admin-heading">
                   <div>
                     <ShieldCheck />
-                    <strong>体验站管理</strong>
+                    <strong>{t("体验站管理")}</strong>
                   </div>
                   <button
                     className="primary-button"
@@ -195,16 +210,16 @@ export function AccountDialog({
                     }
                   >
                     <Ticket />
-                    生成一次体验邀请码
+                    {t("生成一次体验邀请码")}
                   </button>
                 </div>
                 {newCode && (
                   <div className="new-invite">
-                    <span>邀请码只显示在这里，请安全发给体验者。</span>
+                    <span>{t("邀请码只显示在这里，请安全发给体验者。")}</span>
                     <code>{newCode}</code>
                     <button
                       className="icon-button"
-                      aria-label="复制邀请码"
+                      aria-label={t("复制邀请码")}
                       onClick={() => navigator.clipboard.writeText(newCode)}
                     >
                       <Copy />
@@ -218,9 +233,12 @@ export function AccountDialog({
                         <strong>{user.username}</strong>
                         <small>
                           {user.role === "admin"
-                            ? "管理员"
-                            : `已用 ${user.directUsed}/${user.directLimit}`}
-                          {user.disabled ? " · 已停用" : ""}
+                            ? t("管理员")
+                            : t("已用 {used}/{limit}", {
+                                used: user.directUsed,
+                                limit: user.directLimit,
+                              })}
+                          {user.disabled ? t(" · 已停用") : ""}
                         </small>
                       </span>
                       {user.role !== "admin" && (
@@ -237,7 +255,7 @@ export function AccountDialog({
                               })
                             }
                           >
-                            +1 额度
+                            {t("+1 额度")}
                           </button>
                           <button
                             className="quiet-button"
@@ -251,7 +269,7 @@ export function AccountDialog({
                               })
                             }
                           >
-                            {user.disabled ? "启用" : "停用"}
+                            {user.disabled ? t("启用") : t("停用")}
                           </button>
                         </>
                       )}
@@ -268,27 +286,27 @@ export function AccountDialog({
                 aria-pressed={mode === "login"}
                 onClick={() => setMode("login")}
               >
-                登录
+                {t("登录")}
               </button>
               <button
                 aria-pressed={mode === "register"}
                 onClick={() => setMode("register")}
               >
-                邀请码注册
+                {t("邀请码注册")}
               </button>
             </div>
             <div className="account-form">
               <label>
-                <span>用户名</span>
+                <span>{t("用户名")}</span>
                 <input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
-                  placeholder="3–32 位"
+                  placeholder={t("3–32 位")}
                 />
               </label>
               <label>
-                <span>密码</span>
+                <span>{t("密码")}</span>
                 <input
                   type="password"
                   value={password}
@@ -296,12 +314,12 @@ export function AccountDialog({
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
-                  placeholder="至少 12 位"
+                  placeholder={t("至少 12 位")}
                 />
               </label>
               {mode === "register" && (
                 <label>
-                  <span>一次性邀请码</span>
+                  <span>{t("一次性邀请码")}</span>
                   <input
                     value={inviteCode}
                     onChange={(e) =>
@@ -322,12 +340,18 @@ export function AccountDialog({
                 }
                 onClick={submit}
               >
-                {busy ? "正在处理…" : mode === "login" ? "登录" : "注册并登录"}
+                {busy
+                  ? t("正在处理…")
+                  : mode === "login"
+                    ? t("登录")
+                    : t("注册并登录")}
               </button>
             </div>
             <p className="privacy-note">
               <LockSimple />
-              登录只用于控制直接发布权限。文章、图片和历史仍保存在当前浏览器，不会因为登录自动上传到服务器。
+              {t(
+                "登录只用于控制直接发布权限。文章、图片和历史仍保存在当前浏览器，不会因为登录自动上传到服务器。",
+              )}
             </p>
           </>
         )}

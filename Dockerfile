@@ -1,4 +1,6 @@
 FROM node:24-alpine AS builder
+ARG VITE_DEFAULT_LANGUAGE
+ENV VITE_DEFAULT_LANGUAGE=$VITE_DEFAULT_LANGUAGE
 WORKDIR /app
 RUN npm install --global pnpm@11.19.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
