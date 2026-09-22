@@ -204,8 +204,15 @@ describe("体验账号与直发额度", () => {
     });
     expect(invite.response.status).toBe(201);
     expect(invite.body.code).toMatch(/^ACKS-/);
+    expect(invite.body.id).toBeTruthy();
 
     const overview = await admin.post("/admin/overview");
+    expect(
+      overview.body.invites.some((item) => item.id === invite.body.id),
+    ).toBe(true);
+    expect(
+      overview.body.audits.some((item) => item.action === "invite.create"),
+    ).toBe(true);
     const trial = overview.body.users.find((user) => user.role === "trial");
     expect(trial).toBeTruthy();
     const updated = await admin.post("/admin/users/update", {
@@ -213,5 +220,19 @@ describe("体验账号与直发额度", () => {
       directLimit: 2,
     });
     expect(updated.body.account.directLimit).toBe(2);
+    const revoked = await admin.post("/admin/invites/revoke", {
+      inviteId: invite.body.id,
+    });
+    expect(revoked.response.status).toBe(200);
+    const afterRevoke = await admin.post("/admin/overview");
+    expect(
+      afterRevoke.body.invites.some((item) => item.id === invite.body.id),
+    ).toBe(false);
+    expect(
+      afterRevoke.body.audits.some((item) => item.action === "invite.revoke"),
+    ).toBe(true);
+    expect(
+      afterRevoke.body.audits.some((item) => item.action === "user.update"),
+    ).toBe(true);
   });
 });

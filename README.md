@@ -49,6 +49,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 | Markdown 编辑 | CodeMirror 6、H1–H6、粗体、斜体、删除线、引用、列表、任务列表、表格、代码、链接、图片、脚注、公式与 Mermaid 输入 |
 | 列表输入      | 回车自动继续列表；有序列表在源文中生成真实递增编号；空项再次回车退出                                             |
 | 本地保存      | IndexedDB 事务、自动保存、版本快照、跨标签 revision 冲突保护                                                     |
+| 文稿管理      | 最近编辑 / 标题 / 创建时间排序，本地固定，完整标题提示                                                           |
 | 图片          | PNG、JPEG、静态 WebP；文件选择、粘贴、拖入、缺图重新关联                                                         |
 | X 转换        | Markdown AST → X Content State；标题、行内样式、列表、引用、链接、图片与分隔线                                   |
 | 图片化        | 表格和围栏代码本地生成 2x PNG；长内容自动分片；保留原始 Markdown                                                 |
@@ -58,7 +59,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 | 直接发布      | OAuth 2.0 PKCE、X Media Upload、Article Draft、发布前二次确认                                                    |
 | 离线          | 首次完整加载后缓存应用外壳；更新由用户确认；`/api/` 永远直连网络                                                 |
 | 界面语言      | 中文 / English，浏览器语言自动检测，手动切换并本地记忆                                                           |
-| 体验账号      | Hosted 模式邀请码注册、scrypt 密码哈希、普通账号一次直发、管理员不限次数                                         |
+| 体验账号      | Hosted 模式邀请码注册、普通账号一次直发、管理员不限次数、邀请码撤销与管理员审计                                  |
 
 ## 两种发布方式
 
@@ -89,11 +90,11 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 
 访问：[https://xeditor.acks.com.cn](https://xeditor.acks.com.cn)
 
-| 使用方式       | 权限                                         |
-| -------------- | -------------------------------------------- |
-| 不登录         | 本地写作、预览、校验、导入导出、手动发布     |
-| 普通邀请码账号 | 使用自己的 Client ID 完成一次完整自动发布    |
-| 管理员         | 自动发布不限次数，可生成邀请码和管理体验额度 |
+| 使用方式       | 权限                                               |
+| -------------- | -------------------------------------------------- |
+| 不登录         | 本地写作、预览、校验、导入导出、手动发布           |
+| 普通邀请码账号 | 使用自己的 Client ID 完成一次完整自动发布          |
+| 管理员         | 自动发布不限次数，可管理邀请码、体验额度和审计记录 |
 
 登录只控制直接发布权限，**不会把本地文稿同步到服务器**。如果只是写作和手动发布，可以始终不登录。
 
@@ -127,19 +128,19 @@ Node Publish Bridge
 
 ## 技术栈
 
-| 层       | 技术                                                                     |
-| -------- | ------------------------------------------------------------------------ |
-| 应用     | React 19、TypeScript 7、Vite 8                                           |
-| 编辑器   | CodeMirror 6                                                             |
-| 本地数据 | Dexie 4、IndexedDB                                                       |
-| Markdown | unified、remark-parse、remark-gfm                                        |
-| 校验     | Ajv 8、JSON Schema                                                       |
-| 图像     | Canvas 2D、Shiki 4                                                       |
-| 资源包   | fflate、Web Crypto                                                       |
-| 后台任务 | Web Workers                                                              |
-| 发布桥   | Node.js 24、SQLite、OAuth 2.0 PKCE、AES-256-GCM                          |
-| 运行     | Docker Compose、非特权 Nginx、Caddy / Nginx HTTPS                        |
-| 测试     | Vitest、fake-indexeddb、桥接集成测试、生产 Worker 与 Service Worker 回归 |
+| 层       | 技术                                                                    |
+| -------- | ----------------------------------------------------------------------- |
+| 应用     | React 19、TypeScript 7、Vite 8                                          |
+| 编辑器   | CodeMirror 6                                                            |
+| 本地数据 | Dexie 4、IndexedDB                                                      |
+| Markdown | unified、remark-parse、remark-gfm                                       |
+| 校验     | Ajv 8、JSON Schema                                                      |
+| 图像     | Canvas 2D、Shiki 4                                                      |
+| 资源包   | fflate、Web Crypto                                                      |
+| 后台任务 | Web Workers                                                             |
+| 发布桥   | Node.js 24、SQLite、OAuth 2.0 PKCE、AES-256-GCM                         |
+| 运行     | Docker Compose、非特权 Nginx、Caddy / Nginx HTTPS                       |
+| 测试     | Vitest、fake-indexeddb、桥接集成测试、axe、七档截图、键盘与 Worker 回归 |
 
 依赖版本由 `pnpm-lock.yaml` 固定。
 
@@ -254,9 +255,10 @@ xeditor.example.com {
 
 ## 验证状态
 
-- `48` 项 Vitest 测试通过；
+- `51` 项 Vitest 测试通过；
 - GitHub Actions Core checks 通过；
 - 生产 Worker、Service Worker API bypass 和 Sites 路由回归通过；
+- 320–1920px 七档截图、键盘焦点循环、200% 等效缩放和 axe 自动检查通过；
 - Hosted / Self-hosted Docker 模式通过；
 - 真实 X OAuth、Media Upload、Article Draft 和 Publish 通过；
 - 正文图片、表格图片和排版已在 X Article 中验证；

@@ -21,6 +21,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - run: node scripts/ux-regression.mjs
       - run: node scripts/test-built-worker.mjs
       - run: pnpm test:sites
       - run: pnpm audit --prod

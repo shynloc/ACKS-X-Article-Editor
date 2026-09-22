@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
+  ClockCounterClockwise,
   Copy,
   Eye,
   EyeSlash,
@@ -10,6 +11,7 @@ import {
   ShieldCheck,
   SignOut,
   Ticket,
+  TrashSimple,
   UserCircle,
   WarningCircle,
   X,
@@ -22,11 +24,13 @@ import {
   loginAccount,
   logoutAccount,
   registerAccount,
+  revokeInvite,
   updateAccountByAdmin,
   type XAccount,
   type XStatus,
 } from "../services/xBridge";
 import { localizeKnownMessage, useI18n } from "../i18n";
+import { trapDialogTab } from "./dialogFocus";
 
 export function AccountDialog({
   close,
@@ -51,13 +55,24 @@ export function AccountDialog({
   const [overview, setOverview] = useState<{
     users: XAccount[];
     invites: Array<{
+      id: string;
       role: string;
       direct_limit: number;
       created_at: number;
       used: boolean;
+      used_at?: number | null;
+    }>;
+    audits: Array<{
+      id: string;
+      action: string;
+      target_type: string;
+      target_id?: string | null;
+      created_at: number;
+      admin_username?: string | null;
     }>;
   }>();
   const [newCode, setNewCode] = useState("");
+  const [newInviteId, setNewInviteId] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const refresh = async () => {
@@ -104,6 +119,23 @@ export function AccountDialog({
       onNotice(t(mode === "login" ? "登录成功" : "账号注册成功"));
     });
   const account = status?.account;
+  const formatAdminTime = (value: number) =>
+    new Date(value).toLocaleString(language === "en" ? "en" : "zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  const auditLabel = (action: string) =>
+    t(
+      action === "invite.create"
+        ? "创建邀请码"
+        : action === "invite.revoke"
+          ? "撤销邀请码"
+          : action === "user.update"
+            ? "更新体验账号"
+            : "管理员操作",
+    );
   const readCapsLock = (event: React.KeyboardEvent<HTMLInputElement>) =>
     setCapsLock(event.getModifierState("CapsLock"));
   const switchMode = (next: "login" | "register") => {
@@ -118,6 +150,7 @@ export function AccountDialog({
       className="account-dialog"
       aria-label={t("体验账号")}
       onCancel={close}
+      onKeyDown={trapDialogTab}
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) close();
       }}
@@ -244,6 +277,7 @@ export function AccountDialog({
                       run(async () => {
                         const result = await createInvite("trial", 1);
                         setNewCode(result.code);
+                        setNewInviteId(result.id);
                         await refresh();
                       })
                     }
@@ -265,6 +299,53 @@ export function AccountDialog({
                     </button>
                   </div>
                 )}
+                <section className="admin-invites">
+                  <h3>
+                    <Ticket />
+                    {t("邀请码记录")}
+                  </h3>
+                  {(overview?.invites ?? []).length ? (
+                    overview?.invites.map((invite) => (
+                      <div className="admin-invite" key={invite.id}>
+                        <span>
+                          <strong>
+                            {invite.role === "admin"
+                              ? t("管理员邀请码")
+                              : t("体验邀请码")}
+                          </strong>
+                          <small>
+                            {formatAdminTime(invite.created_at)} ·{" "}
+                            {invite.used ? t("已使用") : t("未使用")}
+                          </small>
+                        </span>
+                        {!invite.used && (
+                          <button
+                            className="quiet-button danger-button"
+                            disabled={busy}
+                            onClick={() => {
+                              if (!confirm(t("确认撤销这个未使用的邀请码？")))
+                                return;
+                              void run(async () => {
+                                await revokeInvite(invite.id);
+                                if (newInviteId === invite.id) {
+                                  setNewCode("");
+                                  setNewInviteId("");
+                                }
+                                await refresh();
+                                onNotice(t("邀请码已撤销"));
+                              });
+                            }}
+                          >
+                            <TrashSimple />
+                            {t("撤销")}
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="admin-empty">{t("尚无邀请码记录")}</p>
+                  )}
+                </section>
                 <div className="admin-users">
                   {(overview?.users ?? []).map((user) => (
                     <div className="admin-user" key={user.id}>
@@ -315,6 +396,27 @@ export function AccountDialog({
                     </div>
                   ))}
                 </div>
+                <details className="admin-audit">
+                  <summary>
+                    <ClockCounterClockwise />
+                    {t("管理员操作记录")}
+                  </summary>
+                  <div>
+                    {(overview?.audits ?? []).length ? (
+                      overview?.audits.map((item) => (
+                        <p key={item.id}>
+                          <strong>{auditLabel(item.action)}</strong>
+                          <span>
+                            {formatAdminTime(item.created_at)} ·{" "}
+                            {item.admin_username || t("管理员")}
+                          </span>
+                        </p>
+                      ))
+                    ) : (
+                      <p className="admin-empty">{t("尚无管理员操作记录")}</p>
+                    )}
+                  </div>
+                </details>
               </section>
             )}
           </>

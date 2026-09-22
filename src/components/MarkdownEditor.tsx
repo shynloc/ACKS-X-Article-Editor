@@ -254,6 +254,11 @@ export const MarkdownEditor = forwardRef<
         ],
       }),
     });
+    editorView.scrollDOM.tabIndex = 0;
+    editorView.scrollDOM.setAttribute(
+      "aria-label",
+      t("Markdown 编辑区域滚动容器"),
+    );
     view.current = editorView;
     return () => {
       editorView.destroy();
@@ -282,6 +287,10 @@ export const MarkdownEditor = forwardRef<
     });
   }, [readOnly]);
   useEffect(() => {
+    view.current?.scrollDOM.setAttribute(
+      "aria-label",
+      t("Markdown 编辑区域滚动容器"),
+    );
     view.current?.dispatch({
       effects: languageConfig.current.reconfigure([
         placeholder(

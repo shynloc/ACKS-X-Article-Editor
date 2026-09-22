@@ -84,7 +84,7 @@ export const changeAccountPassword = (
     body: JSON.stringify({ currentPassword, nextPassword }),
   });
 export const createInvite = (role: "trial" | "admin", directLimit = 1) =>
-  request<{ code: string; role: string; directLimit: number }>(
+  request<{ code: string; role: string; directLimit: number; id: string }>(
     "/admin/invites/create",
     { method: "POST", body: JSON.stringify({ role, directLimit }) },
   );
@@ -92,12 +92,29 @@ export const getAdminOverview = () =>
   request<{
     users: XAccount[];
     invites: Array<{
+      id: string;
       role: string;
       direct_limit: number;
       created_at: number;
       used: boolean;
+      used_at?: number | null;
+      used_by?: string | null;
+    }>;
+    audits: Array<{
+      id: string;
+      action: string;
+      target_type: string;
+      target_id?: string | null;
+      details_json?: string | null;
+      created_at: number;
+      admin_username?: string | null;
     }>;
   }>("/admin/overview", { method: "POST", body: "{}" });
+export const revokeInvite = (inviteId: string) =>
+  request<{ ok: true }>("/admin/invites/revoke", {
+    method: "POST",
+    body: JSON.stringify({ inviteId }),
+  });
 export const updateAccountByAdmin = (
   userId: string,
   patch: { directLimit?: number; disabled?: boolean },

@@ -63,6 +63,11 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS one_open_workflow_per_user
     ON workflows(user_id)
     WHERE user_id IS NOT NULL AND status IN ('active','draft');
+  CREATE TABLE IF NOT EXISTS admin_audit (
+    id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL,
+    target_type TEXT NOT NULL, target_id TEXT, details_json TEXT,
+    created_at INTEGER NOT NULL
+  );
 `);
 function addColumn(table, definition) {
   try {
@@ -74,6 +79,11 @@ function addColumn(table, definition) {
 addColumn("sessions", "user_id TEXT");
 addColumn("drafts", "user_id TEXT");
 addColumn("drafts", "workflow_id TEXT");
+addColumn("invites", "id TEXT");
+db.exec(`
+  UPDATE invites SET id=lower(hex(randomblob(16))) WHERE id IS NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS invite_id_unique ON invites(id);
+`);
 
 const now = () => Date.now();
 const token = (size = 32) => randomBytes(size).toString("base64url");
@@ -136,6 +146,19 @@ function requireAdmin(row) {
   if (!account || account.role !== "admin")
     throw Object.assign(new Error("需要管理员权限。"), { status: 403 });
   return account;
+}
+function auditAdmin(admin, action, targetType, targetId, details = {}) {
+  db.prepare(
+    "INSERT INTO admin_audit(id,admin_id,action,target_type,target_id,details_json,created_at) VALUES(?,?,?,?,?,?,?)",
+  ).run(
+    token(18),
+    admin.id,
+    action,
+    targetType,
+    targetId || null,
+    JSON.stringify(details),
+    now(),
+  );
 }
 function workflowFor(row, id, allowed = ["active"]) {
   const workflow = id
@@ -529,11 +552,35 @@ const server = createServer(async (req, res) => {
           role === "admin"
             ? -1
             : Math.min(100, Math.max(0, Number(input.directLimit ?? 1))),
-        code = newInviteCode();
+        code = newInviteCode(),
+        inviteId = token(18);
       db.prepare(
-        "INSERT INTO invites(code_hash,role,direct_limit,created_by,created_at) VALUES(?,?,?,?,?)",
-      ).run(inviteHash(code), role, directLimit, admin.id, now());
-      return send(res, 201, { code, role, directLimit });
+        "INSERT INTO invites(code_hash,role,direct_limit,created_by,created_at,id) VALUES(?,?,?,?,?,?)",
+      ).run(inviteHash(code), role, directLimit, admin.id, now(), inviteId);
+      auditAdmin(admin, "invite.create", "invite", inviteId, {
+        role,
+        directLimit,
+      });
+      return send(res, 201, { code, role, directLimit, id: inviteId });
+    }
+    if (path === "/admin/invites/revoke") {
+      const admin = requireAdmin(row),
+        inviteId = String(input.inviteId || ""),
+        invite = db.prepare("SELECT * FROM invites WHERE id=?").get(inviteId);
+      if (!invite)
+        throw Object.assign(new Error("邀请码不存在。"), { status: 404 });
+      if (invite.used_at)
+        throw Object.assign(new Error("已使用的邀请码不能撤销。"), {
+          status: 409,
+        });
+      db.prepare("DELETE FROM invites WHERE id=? AND used_at IS NULL").run(
+        inviteId,
+      );
+      auditAdmin(admin, "invite.revoke", "invite", inviteId, {
+        role: invite.role,
+        directLimit: invite.direct_limit,
+      });
+      return send(res, 200, { ok: true });
     }
     if (path === "/admin/overview") {
       requireAdmin(row);
@@ -545,11 +592,16 @@ const server = createServer(async (req, res) => {
           .map(publicAccount),
         invites = db
           .prepare(
-            "SELECT role,direct_limit,created_at,used_at,used_by FROM invites ORDER BY created_at DESC LIMIT 200",
+            "SELECT id,role,direct_limit,created_at,used_at,used_by FROM invites ORDER BY created_at DESC LIMIT 200",
           )
           .all()
-          .map((invite) => ({ ...invite, used: !!invite.used_at }));
-      return send(res, 200, { users, invites });
+          .map((invite) => ({ ...invite, used: !!invite.used_at })),
+        audits = db
+          .prepare(
+            "SELECT a.id,a.action,a.target_type,a.target_id,a.details_json,a.created_at,u.username AS admin_username FROM admin_audit a LEFT JOIN users u ON u.id=a.admin_id ORDER BY a.created_at DESC LIMIT 200",
+          )
+          .all();
+      return send(res, 200, { users, invites, audits });
     }
     if (path === "/admin/users/update") {
       const admin = requireAdmin(row),
@@ -578,6 +630,10 @@ const server = createServer(async (req, res) => {
       db.prepare(
         "UPDATE users SET direct_limit=?,disabled=?,updated_at=? WHERE id=?",
       ).run(limit, disabled, now(), target.id);
+      auditAdmin(admin, "user.update", "user", target.id, {
+        directLimit: limit,
+        disabled: !!disabled,
+      });
       return send(res, 200, {
         account: publicAccount({ ...target, direct_limit: limit, disabled }),
       });

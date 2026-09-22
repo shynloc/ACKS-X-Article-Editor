@@ -30,6 +30,7 @@ import {
   type XStatus,
 } from "../services/xBridge";
 import { localizeKnownMessage, useI18n } from "../i18n";
+import { trapDialogTab } from "./dialogFocus";
 
 export function XPublishDialog({
   article,
@@ -238,6 +239,7 @@ export function XPublishDialog({
       className="x-publish-dialog"
       aria-label={t("直接发布到 X")}
       onCancel={close}
+      onKeyDown={trapDialogTab}
       onClick={(e) => {
         if (e.target === e.currentTarget && !busy) close();
       }}

@@ -26,11 +26,15 @@ import {
   PaperPlaneTilt,
   ArrowSquareOut,
   UserCircle,
+  PushPin,
+  PushPinSlash,
+  SortAscending,
 } from "@phosphor-icons/react";
 import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
 import { MarkdownToolbar } from "./components/MarkdownToolbar";
 import { XPublishDialog } from "./components/XPublishDialog";
 import { AccountDialog } from "./components/AccountDialog";
+import { trapDialogTab } from "./components/dialogFocus";
 import { Preview, AssetImage } from "./components/Preview";
 import {
   convert,
@@ -85,6 +89,23 @@ type Panel =
   | "publish"
   | "account"
   | null;
+type LibrarySort = "updated" | "title" | "created";
+function storedLibrarySort(): LibrarySort {
+  try {
+    const value = localStorage.getItem("acks-x-library-sort");
+    return value === "title" || value === "created" ? value : "updated";
+  } catch {
+    return "updated";
+  }
+}
+function storedPins() {
+  try {
+    const value = JSON.parse(localStorage.getItem("acks-x-pinned") || "[]");
+    return new Set<string>(Array.isArray(value) ? value : []);
+  } catch {
+    return new Set<string>();
+  }
+}
 const boot = async () => {
   await db.open();
   await seedLibrary();
@@ -119,6 +140,7 @@ function Modal({
     <dialog
       ref={ref}
       onCancel={close}
+      onKeyDown={trapDialogTab}
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
@@ -173,6 +195,8 @@ export function App() {
     [panel, setPanel] = useState<Panel>(null),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState<"active" | "archived" | "deleted">("active"),
+    [librarySort, setLibrarySort] = useState<LibrarySort>(storedLibrarySort),
+    [pinnedIds, setPinnedIds] = useState<Set<string>>(storedPins),
     [busy, setBusy] = useState(false),
     [tab, setTab] = useState<"source" | "preview">("source"),
     [sidebar, setSidebar] = useState(false),
@@ -503,6 +527,23 @@ export function App() {
       setError(String(e));
     }
   }
+  function changeLibrarySort(next: LibrarySort) {
+    setLibrarySort(next);
+    try {
+      localStorage.setItem("acks-x-library-sort", next);
+    } catch {}
+  }
+  function togglePin(id: string) {
+    setPinnedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem("acks-x-pinned", JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  }
   async function duplicate() {
     if (!draft.current) return;
     const current = draft.current;
@@ -761,7 +802,19 @@ export function App() {
     )
     .filter((a) =>
       (a.title + a.body).toLowerCase().includes(search.toLowerCase()),
-    );
+    )
+    .sort((a, b) => {
+      const pinOrder =
+        Number(pinnedIds.has(b.id)) - Number(pinnedIds.has(a.id));
+      if (pinOrder) return pinOrder;
+      if (librarySort === "title")
+        return (a.title || t("未命名文章")).localeCompare(
+          b.title || t("未命名文章"),
+          language,
+        );
+      const field = librarySort === "created" ? "createdAt" : "updatedAt";
+      return b[field].localeCompare(a[field]);
+    });
   const statusText =
     status === "clean"
       ? `${t("已保存到本地")} · r${article.revision}`
@@ -881,6 +934,21 @@ export function App() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
+        <label className="library-sort">
+          <SortAscending size={17} />
+          <span>{t("排序")}</span>
+          <select
+            aria-label={t("文稿排序")}
+            value={librarySort}
+            onChange={(event) =>
+              changeLibrarySort(event.target.value as LibrarySort)
+            }
+          >
+            <option value="updated">{t("最近编辑")}</option>
+            <option value="title">{t("标题")}</option>
+            <option value="created">{t("创建时间")}</option>
+          </select>
+        </label>
         <div className="library-actions">
           <button onClick={create} disabled={busy}>
             <Plus size={20} />
@@ -894,14 +962,39 @@ export function App() {
         <nav className="document-list" aria-label="文稿列表">
           {visible.length ? (
             visible.map((a) => (
-              <button
+              <div
                 key={a.id}
                 className={`document-row ${article.id === a.id ? "active" : ""}`}
-                onClick={() => switchTo(a)}
               >
-                <span>{a.title || "未命名文章"}</span>
-                <small>{formatTime(a.updatedAt)}</small>
-              </button>
+                <button
+                  className="document-open"
+                  title={a.title || t("未命名文章")}
+                  aria-current={article.id === a.id ? "page" : undefined}
+                  onClick={() => switchTo(a)}
+                >
+                  <span>{a.title || t("未命名文章")}</span>
+                  <small>
+                    {librarySort === "created"
+                      ? t("创建于 {time}", { time: formatTime(a.createdAt) })
+                      : formatTime(a.updatedAt)}
+                  </small>
+                </button>
+                <button
+                  className="document-pin"
+                  aria-label={t(
+                    pinnedIds.has(a.id) ? "取消固定文稿" : "固定文稿",
+                  )}
+                  aria-pressed={pinnedIds.has(a.id)}
+                  title={t(pinnedIds.has(a.id) ? "取消固定文稿" : "固定文稿")}
+                  onClick={() => togglePin(a.id)}
+                >
+                  {pinnedIds.has(a.id) ? (
+                    <PushPinSlash size={16} />
+                  ) : (
+                    <PushPin size={16} />
+                  )}
+                </button>
+              </div>
             ))
           ) : (
             <p className="library-empty">

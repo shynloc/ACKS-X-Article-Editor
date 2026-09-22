@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { randomBytes } from "node:crypto";
 import { newInviteCode, inviteHash } from "./security.mjs";
 
 const databasePath = process.env.X_BRIDGE_DB || "/data/x-bridge.sqlite";
@@ -8,8 +9,9 @@ if (command !== "create-admin-invite") {
   process.exit(2);
 }
 const db = new DatabaseSync(databasePath);
-const code = newInviteCode();
+const code = newInviteCode(),
+  id = randomBytes(18).toString("base64url");
 db.prepare(
-  "INSERT INTO invites(code_hash,role,direct_limit,created_at) VALUES(?,?,?,?)",
-).run(inviteHash(code), "admin", -1, Date.now());
+  "INSERT INTO invites(code_hash,role,direct_limit,created_at,id) VALUES(?,?,?,?,?)",
+).run(inviteHash(code), "admin", -1, Date.now(), id);
 process.stdout.write(`${code}\n`);
