@@ -1,10 +1,11 @@
-import type { RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
   BracketsCurly,
   CheckSquare,
   Code,
+  DotsThree,
   FileCode,
   Function,
   HighlighterCircle,
@@ -56,6 +57,7 @@ function Tool({
     </button>
   );
 }
+
 function Group({
   label,
   children,
@@ -70,6 +72,7 @@ function Group({
     </div>
   );
 }
+
 export function MarkdownToolbar({
   editor,
   onImage,
@@ -78,9 +81,19 @@ export function MarkdownToolbar({
   onImage: () => void;
 }) {
   const { t } = useI18n();
+  const more = useRef<HTMLDetailsElement>(null);
+  const closeMore = () => {
+    if (more.current) more.current.open = false;
+  };
   const command = (run: (handle: EditorHandle) => void) => () => {
+    closeMore();
     if (editor.current) run(editor.current);
   };
+  const addImage = () => {
+    closeMore();
+    onImage();
+  };
+
   return (
     <div
       className="markdown-toolbar"
@@ -95,13 +108,7 @@ export function MarkdownToolbar({
           <ArrowClockwise />
         </Tool>
       </Group>
-      <Group label="标题">
-        <Tool
-          label="一级标题"
-          action={command((e) => e.line({ type: "heading", level: 1 }))}
-        >
-          <TextHOne />
-        </Tool>
+      <Group label="常用标题">
         <Tool
           label="二级标题"
           action={command((e) => e.line({ type: "heading", level: 2 }))}
@@ -114,26 +121,8 @@ export function MarkdownToolbar({
         >
           <TextHThree />
         </Tool>
-        <Tool
-          label="四级标题"
-          action={command((e) => e.line({ type: "heading", level: 4 }))}
-        >
-          <TextHFour />
-        </Tool>
-        <Tool
-          label="五级标题"
-          action={command((e) => e.line({ type: "heading", level: 5 }))}
-        >
-          <TextHFive />
-        </Tool>
-        <Tool
-          label="六级标题"
-          action={command((e) => e.line({ type: "heading", level: 6 }))}
-        >
-          <TextHSix />
-        </Tool>
       </Group>
-      <Group label="文字样式">
+      <Group label="常用文字样式">
         <Tool
           label="加粗"
           action={command((e) => e.inline("**", undefined, "粗体文字"))}
@@ -146,46 +135,8 @@ export function MarkdownToolbar({
         >
           <TextItalic />
         </Tool>
-        <Tool
-          label="删除线"
-          action={command((e) => e.inline("~~", undefined, "删除文字"))}
-        >
-          <TextStrikethrough />
-        </Tool>
-        <Tool
-          label="下划线（X 将降级为普通文字）"
-          action={command((e) => e.inline("<u>", "</u>", "下划线文字"))}
-        >
-          <TextUnderline />
-        </Tool>
-        <Tool
-          label="高亮（X 将降级为普通文字）"
-          action={command((e) => e.inline("<mark>", "</mark>", "重点文字"))}
-        >
-          <HighlighterCircle />
-        </Tool>
-        <Tool
-          label="波浪线（X 将降级为普通文字）"
-          action={command((e) =>
-            e.inline('<span data-md-wavy="true">', "</span>", "波浪线文字"),
-          )}
-        >
-          <WaveSine />
-        </Tool>
-        <Tool
-          label="上标（X 将降级为普通文字）"
-          action={command((e) => e.inline("<sup>", "</sup>", "上标"))}
-        >
-          <TextSuperscript />
-        </Tool>
-        <Tool
-          label="下标（X 将降级为普通文字）"
-          action={command((e) => e.inline("<sub>", "</sub>", "下标"))}
-        >
-          <TextSubscript />
-        </Tool>
       </Group>
-      <Group label="列表与引用">
+      <Group label="常用列表与引用">
         <Tool
           label="无序列表"
           action={command((e) => e.line({ type: "bullet" }))}
@@ -198,73 +149,154 @@ export function MarkdownToolbar({
         >
           <ListNumbers />
         </Tool>
-        <Tool
-          label="任务列表"
-          action={command((e) => e.line({ type: "task" }))}
-        >
-          <CheckSquare />
-        </Tool>
-        <Tool label="引用" action={command((e) => e.line({ type: "quote" }))}>
-          <Quotes />
-        </Tool>
       </Group>
-      <Group label="插入内容">
+      <Group label="常用插入">
         <Tool label="链接" action={command((e) => e.link())}>
           <Link />
         </Tool>
-        <Tool label="插入本地图片" action={onImage}>
+        <Tool label="插入本地图片" action={addImage}>
           <Image />
         </Tool>
         <Tool label="表格" action={command((e) => e.table())}>
           <Table />
         </Tool>
-        <Tool
-          label="行内代码"
-          action={command((e) => e.inline("`", undefined, "代码"))}
-        >
-          <Code />
-        </Tool>
-        <Tool
-          label="代码块"
-          action={command((e) => e.block("```\n", "\n```", "代码"))}
-        >
-          <FileCode />
-        </Tool>
-        <Tool
-          label="水平分隔线"
-          action={command((e) => e.block("---\n", "", ""))}
-        >
-          <Minus />
-        </Tool>
-        <Tool label="脚注" action={command((e) => e.footnote())}>
-          <BracketsCurly />
-        </Tool>
-        <Tool label="硬换行" action={command((e) => e.insert("  \n"))}>
-          <TreeStructure />
-        </Tool>
       </Group>
-      <Group label="扩展语法">
-        <Tool
-          label="行内公式（X 将图片化）"
-          action={command((e) => e.inline("$", undefined, "E = mc^2"))}
-        >
-          <Function />
-        </Tool>
-        <Tool
-          label="公式块（X 将图片化）"
-          action={command((e) => e.block("$$\n", "\n$$", "E = mc^2"))}
-        >
-          <MathOperations />
-        </Tool>
-        <Tool
-          label="Mermaid 图表（X 将图片化）"
-          action={command((e) =>
-            e.block("```mermaid\n", "\n```", "graph TD\n  A --> B"),
-          )}
-        >
-          <TreeStructure />
-        </Tool>
-      </Group>
+
+      <details className="toolbar-more" ref={more}>
+        <summary aria-label={t("更多格式")} title={t("更多格式")}>
+          <DotsThree />
+        </summary>
+        <div className="toolbar-more-menu">
+          <Group label="标题">
+            <Tool
+              label="一级标题"
+              action={command((e) => e.line({ type: "heading", level: 1 }))}
+            >
+              <TextHOne />
+            </Tool>
+            <Tool
+              label="四级标题"
+              action={command((e) => e.line({ type: "heading", level: 4 }))}
+            >
+              <TextHFour />
+            </Tool>
+            <Tool
+              label="五级标题"
+              action={command((e) => e.line({ type: "heading", level: 5 }))}
+            >
+              <TextHFive />
+            </Tool>
+            <Tool
+              label="六级标题"
+              action={command((e) => e.line({ type: "heading", level: 6 }))}
+            >
+              <TextHSix />
+            </Tool>
+          </Group>
+          <Group label="文字样式">
+            <Tool
+              label="删除线"
+              action={command((e) => e.inline("~~", undefined, "删除文字"))}
+            >
+              <TextStrikethrough />
+            </Tool>
+            <Tool
+              label="下划线（X 将降级为普通文字）"
+              action={command((e) => e.inline("<u>", "</u>", "下划线文字"))}
+            >
+              <TextUnderline />
+            </Tool>
+            <Tool
+              label="高亮（X 将降级为普通文字）"
+              action={command((e) => e.inline("<mark>", "</mark>", "重点文字"))}
+            >
+              <HighlighterCircle />
+            </Tool>
+            <Tool
+              label="波浪线（X 将降级为普通文字）"
+              action={command((e) =>
+                e.inline('<span data-md-wavy="true">', "</span>", "波浪线文字"),
+              )}
+            >
+              <WaveSine />
+            </Tool>
+            <Tool
+              label="上标（X 将降级为普通文字）"
+              action={command((e) => e.inline("<sup>", "</sup>", "上标"))}
+            >
+              <TextSuperscript />
+            </Tool>
+            <Tool
+              label="下标（X 将降级为普通文字）"
+              action={command((e) => e.inline("<sub>", "</sub>", "下标"))}
+            >
+              <TextSubscript />
+            </Tool>
+          </Group>
+          <Group label="列表与引用">
+            <Tool
+              label="引用"
+              action={command((e) => e.line({ type: "quote" }))}
+            >
+              <Quotes />
+            </Tool>
+            <Tool
+              label="任务列表"
+              action={command((e) => e.line({ type: "task" }))}
+            >
+              <CheckSquare />
+            </Tool>
+          </Group>
+          <Group label="插入内容">
+            <Tool
+              label="行内代码"
+              action={command((e) => e.inline("`", undefined, "代码"))}
+            >
+              <Code />
+            </Tool>
+            <Tool
+              label="代码块"
+              action={command((e) => e.block("```\n", "\n```", "代码"))}
+            >
+              <FileCode />
+            </Tool>
+            <Tool
+              label="水平分隔线"
+              action={command((e) => e.block("---\n", "", ""))}
+            >
+              <Minus />
+            </Tool>
+            <Tool label="脚注" action={command((e) => e.footnote())}>
+              <BracketsCurly />
+            </Tool>
+            <Tool label="硬换行" action={command((e) => e.insert("  \n"))}>
+              <TreeStructure />
+            </Tool>
+          </Group>
+          <Group label="扩展语法">
+            <Tool
+              label="行内公式（X 将图片化）"
+              action={command((e) => e.inline("$", undefined, "E = mc^2"))}
+            >
+              <Function />
+            </Tool>
+            <Tool
+              label="公式块（X 将图片化）"
+              action={command((e) => e.block("$$\n", "\n$$", "E = mc^2"))}
+            >
+              <MathOperations />
+            </Tool>
+            <Tool
+              label="Mermaid 图表（X 将图片化）"
+              action={command((e) =>
+                e.block("```mermaid\n", "\n```", "graph TD\n  A --> B"),
+              )}
+            >
+              <TreeStructure />
+            </Tool>
+          </Group>
+        </div>
+      </details>
     </div>
   );
 }

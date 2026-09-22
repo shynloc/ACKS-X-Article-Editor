@@ -37,15 +37,22 @@ export function XPublishDialog({
   close,
   onNotice,
   onRequireAccount,
+  onManualPublish,
 }: {
   article: Article;
   conversion: Conversion | null;
   close: () => void;
   onNotice: (message: string) => void;
   onRequireAccount: () => void;
+  onManualPublish: () => void;
 }) {
   const { t, language } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
+  const focusHandled = useRef(false);
+  const loginButton = useRef<HTMLButtonElement>(null);
+  const clientIdInput = useRef<HTMLInputElement>(null);
+  const createDraftButton = useRef<HTMLButtonElement>(null);
+  const confirmationInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<XStatus>();
   const [clientId, setClientId] = useState("");
   const [busy, setBusy] = useState("");
@@ -89,6 +96,16 @@ export function XPublishDialog({
     );
     return () => dialog.current?.close();
   }, []);
+  useEffect(() => {
+    if (!status || focusHandled.current) return;
+    focusHandled.current = true;
+    requestAnimationFrame(() => {
+      if (status.deploymentMode === "hosted" && !status.account)
+        loginButton.current?.focus();
+      else if (!status.connected) clientIdInput.current?.focus();
+      else (createDraftButton.current ?? confirmationInput.current)?.focus();
+    });
+  }, [status]);
   const run = async (label: string, action: () => Promise<void>) => {
     setBusy(label);
     setError("");
@@ -252,6 +269,7 @@ export function XPublishDialog({
               )}
             </p>
             <button
+              ref={loginButton}
               className="primary-button wide"
               onClick={() => {
                 close();
@@ -259,6 +277,15 @@ export function XPublishDialog({
               }}
             >
               {t("登录或使用邀请码注册")}
+            </button>
+            <button
+              className="secondary-button wide"
+              onClick={() => {
+                close();
+                onManualPublish();
+              }}
+            >
+              {t("改用手动发布")}
             </button>
           </div>
         ) : !status?.connected ? (
@@ -274,6 +301,7 @@ export function XPublishDialog({
             <label>
               <span>X Developer Client ID</span>
               <input
+                ref={clientIdInput}
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 placeholder={t("从 X Developer Portal 复制 Client ID")}
@@ -353,6 +381,7 @@ export function XPublishDialog({
             )}
             {!draft ? (
               <button
+                ref={createDraftButton}
                 className="primary-button wide"
                 disabled={!!busy || !conversion}
                 onClick={createDraft}
@@ -373,6 +402,7 @@ export function XPublishDialog({
                   )}
                 </p>
                 <input
+                  ref={confirmationInput}
                   value={confirmation}
                   onChange={(e) => setConfirmation(e.target.value)}
                   placeholder={`${t("输入")}: ${confirmationWord}`}

@@ -94,16 +94,25 @@ let bootPromise: ReturnType<typeof boot> | undefined;
 function Modal({
   title,
   close,
+  initialFocus,
   children,
 }: {
   title: string;
   close: () => void;
+  initialFocus?: string;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
   const ref = useRef<HTMLDialogElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     ref.current?.showModal();
+    requestAnimationFrame(() => {
+      const target = initialFocus
+        ? ref.current?.querySelector<HTMLElement>(initialFocus)
+        : undefined;
+      (target ?? heading.current)?.focus();
+    });
     return () => ref.current?.close();
   }, []);
   return (
@@ -116,7 +125,9 @@ function Modal({
       aria-label={title}
     >
       <div className="dialog-heading">
-        <h2>{title}</h2>
+        <h2 ref={heading} tabIndex={-1}>
+          {title}
+        </h2>
         <button
           className="icon-button"
           aria-label={t("关闭对话框")}
@@ -1206,7 +1217,11 @@ export function App() {
         }}
       />
       {panel === "validation" && (
-        <Modal title={t("转换校验")} close={() => setPanel(null)}>
+        <Modal
+          title={t("转换校验")}
+          close={() => setPanel(null)}
+          initialFocus=".issue-row, .json-details summary"
+        >
           <p className="dialog-intro">
             {t("只校验本地结构，不代表 X 已接受内容。点击问题可定位到源文。")}
           </p>
@@ -1262,7 +1277,11 @@ export function App() {
         </Modal>
       )}
       {panel === "manual-x" && (
-        <Modal title={t("手动发布到 X")} close={() => setPanel(null)}>
+        <Modal
+          title={t("手动发布到 X")}
+          close={() => setPanel(null)}
+          initialFocus=".publish-step a, .publish-step button"
+        >
           <p className="dialog-intro">
             {t(
               "X 没有资源包导入入口。按下面顺序把标题、正文和图片放入 X Article 编辑器；你的内容不会由本站发送给 X。",
@@ -1320,7 +1339,11 @@ export function App() {
         </Modal>
       )}
       {panel === "publish" && (
-        <Modal title={t("发布到 X")} close={() => setPanel(null)}>
+        <Modal
+          title={t("发布到 X")}
+          close={() => setPanel(null)}
+          initialFocus=".publish-choice-card"
+        >
           <p className="dialog-intro">
             {t(
               "选择适合当前文稿的发布方式。手动发布不需要账号；直接发布会先创建 X 草稿，并在最终公开前再次确认。",
@@ -1359,13 +1382,18 @@ export function App() {
           close={() => setPanel(null)}
           onNotice={setNotice}
           onRequireAccount={() => setPanel("account")}
+          onManualPublish={() => setPanel("manual-x")}
         />
       )}
       {panel === "account" && (
         <AccountDialog close={() => setPanel(null)} onNotice={setNotice} />
       )}
       {panel === "export" && (
-        <Modal title={t("导出与备份")} close={() => !busy && setPanel(null)}>
+        <Modal
+          title={t("导出与备份")}
+          close={() => !busy && setPanel(null)}
+          initialFocus=".export-primary"
+        >
           <p className="dialog-intro">
             {t(
               "导出当前版本的 Markdown、完整文稿、转换结构和图片。下载完成后可在其他浏览器导入恢复。",
@@ -1436,7 +1464,7 @@ export function App() {
               </button>
             </div>
             <button
-              className="primary-button wide"
+              className="primary-button wide export-primary"
               disabled={
                 busy ||
                 errors.length > 0 ||

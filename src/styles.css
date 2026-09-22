@@ -14,8 +14,8 @@
   --sidebar: #f1f0ec;
   --preview: #fdfcf9;
   --ink: #232724;
-  --muted: #777d75;
-  --subtle: #979d94;
+  --muted: #6b716a;
+  --subtle: #6e746d;
   --line: #e0e2db;
   --accent: #285e45;
   --accent-soft: #e6eae2;
@@ -297,11 +297,11 @@ input {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   min-height: 48px;
-  padding: 7px 20px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: 7px 12px;
+  overflow: visible;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: var(--input);
@@ -311,7 +311,7 @@ input {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding-right: 6px;
+  padding-right: 4px;
   border-right: 1px solid var(--line);
 }
 .markdown-tool-group:last-child {
@@ -319,9 +319,9 @@ input {
 }
 .markdown-tool {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -337,6 +337,48 @@ input {
 }
 .markdown-tool:active {
   transform: translateY(1px);
+}
+.toolbar-more {
+  flex: 0 0 auto;
+}
+.toolbar-more > summary {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+.toolbar-more > summary::-webkit-details-marker {
+  display: none;
+}
+.toolbar-more > summary:hover,
+.toolbar-more[open] > summary {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.toolbar-more > summary svg {
+  width: 19px;
+  height: 19px;
+}
+.toolbar-more[open] {
+  flex-basis: 100%;
+  padding-top: 2px;
+}
+.toolbar-more-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #17231c14;
 }
 .compact-icon {
   display: block;
@@ -1142,7 +1184,7 @@ dialog::backdrop {
 }
 .issue-row small {
   display: block;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 5px;
 }
@@ -1187,14 +1229,14 @@ dialog::backdrop {
   display: block;
   color: var(--muted);
   margin-top: 7px;
-  font-size: 12px;
+  font-size: 13px;
 }
 .privacy-note {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.8;
   margin: 18px 0;
 }
@@ -1215,7 +1257,7 @@ dialog::backdrop {
 .export-files li span {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   margin-top: 5px;
 }
 .secondary-exports {
@@ -1250,7 +1292,7 @@ dialog::backdrop {
 }
 .fine-print {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.9;
   margin-top: 16px;
 }
@@ -1414,7 +1456,7 @@ dialog::backdrop {
 .direct-allowance {
   margin: -7px 0 15px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 .account-tabs {
@@ -1441,6 +1483,13 @@ dialog::backdrop {
   color: var(--muted);
   font-size: 13px;
 }
+.account-field {
+  display: grid;
+  gap: 6px;
+}
+.account-field > label {
+  display: block;
+}
 .account-form input,
 .account-password input {
   width: 100%;
@@ -1448,6 +1497,34 @@ dialog::backdrop {
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--input);
+}
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-right: 46px;
+}
+.password-input > .icon-button {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+.field-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.55;
+}
+.field-hint svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.field-hint.warning {
+  color: var(--warn);
 }
 .account-card {
   display: grid;
@@ -1466,7 +1543,7 @@ dialog::backdrop {
   display: block;
   margin-top: 4px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 .account-password {
   margin-top: 14px;

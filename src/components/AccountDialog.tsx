@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle,
   Copy,
+  Eye,
+  EyeSlash,
+  Info,
   Key,
   LockSimple,
   ShieldCheck,
@@ -40,6 +43,9 @@ export function AccountDialog({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [overview, setOverview] = useState<{
@@ -98,6 +104,14 @@ export function AccountDialog({
       onNotice(t(mode === "login" ? "登录成功" : "账号注册成功"));
     });
   const account = status?.account;
+  const readCapsLock = (event: React.KeyboardEvent<HTMLInputElement>) =>
+    setCapsLock(event.getModifierState("CapsLock"));
+  const switchMode = (next: "login" | "register") => {
+    setMode(next);
+    setError("");
+    setCapsLock(false);
+    requestAnimationFrame(() => usernameInput.current?.focus());
+  };
   return (
     <dialog
       ref={dialog}
@@ -164,20 +178,43 @@ export function AccountDialog({
                 <Key />
                 {t("修改密码")}
               </summary>
-              <input
-                type="password"
-                autoComplete="current-password"
-                placeholder={t("当前密码")}
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                autoComplete="new-password"
-                placeholder={t("新密码，至少 12 位")}
-                value={nextPassword}
-                onChange={(e) => setNextPassword(e.target.value)}
-              />
+              <div className="password-input">
+                <input
+                  type={showChangePassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder={t("当前密码")}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  onKeyDown={readCapsLock}
+                  onKeyUp={readCapsLock}
+                  onBlur={() => setCapsLock(false)}
+                />
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={t(showChangePassword ? "隐藏密码" : "显示密码")}
+                  onClick={() => setShowChangePassword((shown) => !shown)}
+                >
+                  {showChangePassword ? <EyeSlash /> : <Eye />}
+                </button>
+              </div>
+              <div className="password-input">
+                <input
+                  type={showChangePassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder={t("新密码，至少 12 位")}
+                  value={nextPassword}
+                  onChange={(e) => setNextPassword(e.target.value)}
+                  onKeyDown={readCapsLock}
+                  onKeyUp={readCapsLock}
+                  onBlur={() => setCapsLock(false)}
+                />
+              </div>
+              {capsLock && (
+                <small className="field-hint warning" role="status">
+                  {t("大写锁定已开启")}
+                </small>
+              )}
               <button
                 className="secondary-button"
                 disabled={busy || nextPassword.length < 12}
@@ -288,7 +325,7 @@ export function AccountDialog({
                 id="account-login-tab"
                 role="tab"
                 aria-selected={mode === "login"}
-                onClick={() => setMode("login")}
+                onClick={() => switchMode("login")}
               >
                 {t("登录")}
               </button>
@@ -296,7 +333,7 @@ export function AccountDialog({
                 id="account-register-tab"
                 role="tab"
                 aria-selected={mode === "register"}
-                onClick={() => setMode("register")}
+                onClick={() => switchMode("register")}
               >
                 {t("邀请码注册")}
               </button>
@@ -318,30 +355,66 @@ export function AccountDialog({
                   placeholder={t("3–32 位")}
                 />
               </label>
-              <label>
-                <span>{t("密码")}</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={
-                    mode === "login" ? "current-password" : "new-password"
-                  }
-                  placeholder={t("至少 12 位")}
-                />
-              </label>
-              {mode === "register" && (
-                <label>
-                  <span>{t("一次性邀请码")}</span>
+              <div className="account-field">
+                <label htmlFor="account-password">{t("密码")}</label>
+                <div className="password-input">
                   <input
+                    id="account-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={readCapsLock}
+                    onKeyUp={readCapsLock}
+                    onBlur={() => setCapsLock(false)}
+                    autoComplete={
+                      mode === "login" ? "current-password" : "new-password"
+                    }
+                    aria-describedby="account-password-help"
+                    placeholder={t("至少 12 位")}
+                  />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={t(showPassword ? "隐藏密码" : "显示密码")}
+                    onClick={() => setShowPassword((shown) => !shown)}
+                  >
+                    {showPassword ? <EyeSlash /> : <Eye />}
+                  </button>
+                </div>
+                <small
+                  id="account-password-help"
+                  className={`field-hint ${capsLock ? "warning" : ""}`}
+                  role="status"
+                >
+                  {capsLock
+                    ? t("大写锁定已开启")
+                    : mode === "register"
+                      ? t("使用 12–128 位密码；建议包含字母、数字和符号。")
+                      : t("密码为 12–128 位。")}
+                </small>
+              </div>
+              {mode === "register" && (
+                <div className="account-field">
+                  <label htmlFor="account-invite-code">
+                    {t("一次性邀请码")}
+                  </label>
+                  <input
+                    id="account-invite-code"
                     value={inviteCode}
                     onChange={(e) =>
                       setInviteCode(e.target.value.toUpperCase())
                     }
                     autoComplete="off"
+                    aria-describedby="account-invite-help"
                     placeholder="ACKS-…"
                   />
-                </label>
+                  <small id="account-invite-help" className="field-hint">
+                    <Info />
+                    {t(
+                      "邀请码由站点管理员发放。可在项目介绍文章下评论或私信获取，每个邀请码仅能使用一次。",
+                    )}
+                  </small>
+                </div>
               )}
               <button
                 className="primary-button wide"
