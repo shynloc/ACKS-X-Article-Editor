@@ -10,6 +10,16 @@ const english: Record<string, string> = {
   账号: "Account",
   "手动发布到 X": "Manual publish to X",
   "直接发布到 X": "Publish directly to X",
+  发布: "Publish",
+  "发布到 X": "Publish to X",
+  手动发布: "Manual publishing",
+  "创建 X 草稿": "Create an X draft",
+  "选择适合当前文稿的发布方式。手动发布不需要账号；直接发布会先创建 X 草稿，并在最终公开前再次确认。":
+    "Choose the publishing workflow for this draft. Manual publishing needs no account. Direct publishing creates an X draft first and asks again before making it public.",
+  "复制标题、正文和图片，由你在 X Article 编辑器中完成检查。":
+    "Copy the title, body, and images, then review everything in the X Article editor.",
+  "连接自己的 Client ID，上传媒体并创建草稿；公开发布仍需确认。":
+    "Connect your own Client ID, upload media, and create a draft; public publishing still requires confirmation.",
   导出资源包: "Export archive",
   文稿库: "Library",
   关于与存储设置: "About and storage",
@@ -168,6 +178,10 @@ const english: Record<string, string> = {
   "查看原始{kind}": "View original {kind}",
   缺少图片: "Missing image",
   在资源管理中重新关联本地文件: "Reassociate the local file in Assets",
+  图片资源无法读取: "Image asset could not be loaded",
+  "图片 {number}": "Image {number}",
+  "{kind}图片，第 {number} 部分": "{kind} image, part {number}",
+  "离线写作 · 本地文稿": "Offline writing · local draft",
   "请先登录体验账号。": "Sign in with a trial account first.",
   "账号已被停用。": "This account has been disabled.",
   "操作过于频繁，请稍后重试。": "Too many attempts. Try again later.",

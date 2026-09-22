@@ -5,7 +5,8 @@ export interface OfflineState {
 }
 export function registerOffline(notify: (state: OfflineState) => void) {
   const state: OfflineState = { ready: false, online: navigator.onLine };
-  let active = true;
+  let active = true,
+    updateTimer: ReturnType<typeof setInterval> | undefined;
   const emit = () => {
       if (active) notify({ ...state });
     },
@@ -24,7 +25,7 @@ export function registerOffline(notify: (state: OfflineState) => void) {
           emit();
         });
         const update = () => {
-          if (registration.waiting) {
+          if (registration.waiting && navigator.serviceWorker.controller) {
             state.update = () => {
               navigator.serviceWorker.addEventListener(
                 "controllerchange",
@@ -40,6 +41,11 @@ export function registerOffline(notify: (state: OfflineState) => void) {
         registration.addEventListener("updatefound", () => {
           registration.installing?.addEventListener("statechange", update);
         });
+        void registration.update().catch(() => {});
+        updateTimer = setInterval(() => {
+          update();
+          void registration.update().catch(() => {});
+        }, 60_000);
       })
       .catch(() => {
         state.ready = false;
@@ -48,6 +54,7 @@ export function registerOffline(notify: (state: OfflineState) => void) {
   }
   return () => {
     active = false;
+    clearInterval(updateTimer);
     window.removeEventListener("online", online);
     window.removeEventListener("offline", online);
   };

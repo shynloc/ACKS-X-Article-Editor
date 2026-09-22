@@ -126,11 +126,13 @@ input {
   text-align: center;
   font-size: 15px;
   padding-left: 40px;
+  white-space: nowrap;
 }
 .header-actions {
   display: flex;
   align-items: center;
   gap: 24px;
+  min-width: 0;
 }
 .theme-switch {
   display: flex;
@@ -152,7 +154,7 @@ input {
   color: var(--muted);
   font-size: 12px;
 }
-.language-switch button[aria-pressed="true"] {
+.language-switch button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--accent);
   font-weight: 700;
@@ -164,7 +166,7 @@ input {
   padding: 0 12px;
   font-size: 14px;
 }
-.theme-switch button[aria-pressed="true"] {
+.theme-switch button[aria-checked="true"] {
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -208,9 +210,8 @@ input {
   margin: 18px 0 0;
   padding: 0;
   list-style: none;
-  counter-reset: publish-step;
 }
-.publish-steps li {
+.publish-step {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
@@ -218,19 +219,28 @@ input {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  counter-increment: publish-step;
 }
-.publish-steps li::before {
+.publish-step::before {
   grid-row: 1 / span 2;
-  content: counter(publish-step);
-  display: grid;
+  content: "";
   width: 28px;
   height: 28px;
-  place-items: center;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
+  background-color: var(--accent-soft);
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.publish-step:nth-child(1)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ctext x='14' y='19' text-anchor='middle' font-family='Arial,sans-serif' font-size='14' font-weight='700' fill='%23286348'%3E1%3C/text%3E%3C/svg%3E");
+}
+.publish-step:nth-child(2)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ctext x='14' y='19' text-anchor='middle' font-family='Arial,sans-serif' font-size='14' font-weight='700' fill='%23286348'%3E2%3C/text%3E%3C/svg%3E");
+}
+.publish-step:nth-child(3)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ctext x='14' y='19' text-anchor='middle' font-family='Arial,sans-serif' font-size='14' font-weight='700' fill='%23286348'%3E3%3C/text%3E%3C/svg%3E");
+}
+.publish-step:nth-child(4)::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Ctext x='14' y='19' text-anchor='middle' font-family='Arial,sans-serif' font-size='14' font-weight='700' fill='%23286348'%3E4%3C/text%3E%3C/svg%3E");
 }
 .publish-steps span {
   grid-column: 2;
@@ -329,7 +339,42 @@ input {
   transform: translateY(1px);
 }
 .compact-icon {
-  display: none;
+  display: block;
+}
+.publish-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.publish-choice-card {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 7px 12px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--input);
+  text-align: left;
+}
+.publish-choice-card > svg {
+  grid-row: 1 / span 2;
+  color: var(--accent);
+}
+.publish-choice-card strong {
+  font-size: 15px;
+}
+.publish-choice-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.publish-choice-card:hover,
+.publish-choice-card.recommended {
+  border-color: var(--accent);
+}
+.publish-choice-card.recommended {
+  background: var(--accent-soft);
 }
 .sidebar {
   grid-column: 1;
@@ -1013,7 +1058,8 @@ input {
 .update-banner {
   position: fixed;
   bottom: 76px;
-  right: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -1021,6 +1067,8 @@ input {
   padding: 16px;
   font-size: 13px;
   z-index: 19;
+  width: max-content;
+  max-width: calc(100vw - 32px);
 }
 .update-banner button {
   color: var(--accent);
@@ -1036,6 +1084,7 @@ dialog {
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow);
+  overflow: auto;
 }
 dialog::backdrop {
   background: #15251c99;
@@ -1180,6 +1229,21 @@ dialog::backdrop {
   padding: 6px 0;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+.export-actions {
+  position: sticky;
+  bottom: -28px;
+  z-index: 2;
+  margin: 0 -26px -28px;
+  padding: 4px 26px 18px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.export-actions .secondary-exports {
+  margin: 8px 0 12px;
+}
+.export-actions .fine-print {
+  margin: 9px 0 0;
 }
 .wide {
   width: 100%;
@@ -1363,7 +1427,7 @@ dialog::backdrop {
   padding: 11px;
   color: var(--muted);
 }
-.account-tabs button[aria-pressed="true"] {
+.account-tabs button[aria-selected="true"] {
   color: var(--accent);
   border-bottom: 2px solid var(--accent);
 }
@@ -1599,6 +1663,19 @@ dialog::backdrop {
     transition: none !important;
   }
 }
+@media (max-width: 1600px) {
+  .app-header {
+    padding-inline: 22px;
+    gap: 14px;
+  }
+  .header-context {
+    display: none;
+  }
+  .header-actions {
+    margin-left: auto;
+    gap: 12px;
+  }
+}
 @media (max-width: 1270px) {
   .app-shell {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -1618,6 +1695,11 @@ dialog::backdrop {
     gap: 16px;
   }
   .header-publish-button {
+    width: 38px;
+    padding: 8px;
+    font-size: 0;
+  }
+  .header-export-button {
     width: 38px;
     padding: 8px;
     font-size: 0;
@@ -1674,7 +1756,7 @@ dialog::backdrop {
     display: none;
   }
 }
-@media (max-width: 1050px) {
+@media (max-width: 1270px) {
   .app-shell {
     grid-template-rows: 64px 44px minmax(0, 1fr) 54px;
     grid-template-columns: 220px minmax(0, 1fr);
@@ -1797,10 +1879,10 @@ dialog::backdrop {
   .validation-trigger {
     display: none;
   }
-  .header-actions > .primary-button:last-child {
+  .header-export-button {
     display: none;
   }
-  .publish-steps li {
+  .publish-step {
     grid-template-columns: 32px minmax(0, 1fr);
   }
   .publish-steps .primary-button,
@@ -1808,6 +1890,9 @@ dialog::backdrop {
     grid-column: 2;
     grid-row: auto;
     justify-self: start;
+  }
+  .publish-choice-grid {
+    grid-template-columns: 1fr;
   }
   .mobile-view-switch {
     grid-column: 1;

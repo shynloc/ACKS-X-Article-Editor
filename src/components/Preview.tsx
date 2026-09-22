@@ -46,13 +46,14 @@ export function AssetImage({
   alt: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   const url = useAssetUrl(id);
   return url ? (
     <img src={url} alt={alt} className={className} loading="lazy" />
   ) : (
     <div className="image-missing">
       <ImageSquare size={24} />
-      图片资源无法读取
+      {t("图片资源无法读取")}
     </div>
   );
 }
@@ -142,11 +143,14 @@ function GeneratedImage({
           <div className="generated-part" key={url}>
             <img
               src={url}
-              alt={`${node.renderKind === "table" ? "表格" : "代码"}图片，第 ${i + 1} 部分`}
+              alt={t("{kind}图片，第 {number} 部分", {
+                kind: t(node.renderKind === "table" ? "表格" : "代码"),
+                number: i + 1,
+              })}
               loading="lazy"
             />
             <ImageTransfer
-              label={`图片 ${ordinal} · ${node.renderKind === "table" ? "表格" : "代码"}${urls.length > 1 ? ` · ${i + 1}/${urls.length}` : ""}`}
+              label={`${t("图片 {number}", { number: ordinal })} · ${t(node.renderKind === "table" ? "表格" : "代码")}${urls.length > 1 ? ` · ${i + 1}/${urls.length}` : ""}`}
               filename={`${safeFilename(article.title)}-图片${ordinal}-${i + 1}.png`}
               getBlob={() => parts[i].blob}
               disabled={!parts[i]}
@@ -194,7 +198,7 @@ function LocalImageFigure({
             alt={node.alt || asset?.alt || "正文图片"}
           />
           <ImageTransfer
-            label={`图片 ${ordinal} · 正文图`}
+            label={`${t("图片 {number}", { number: ordinal })} · ${t("正文图")}`}
             filename={`${safeFilename(article.title)}-图片${ordinal}.png`}
             getBlob={async () => {
               const stored = await db.assets.get(node.assetId!);
@@ -228,6 +232,7 @@ export function Preview({
   onError: (id: string, message?: string) => void;
   onLocate: (from: number, to: number) => void;
 }) {
+  const { t } = useI18n();
   const elements: ReactNode[] = [];
   const nodes = conversion?.nodes ?? [];
   let imageOrdinal = 0;
@@ -321,7 +326,7 @@ export function Preview({
         />
       )}
       <div className="article-body">
-        <div className="article-eyebrow">离线写作 · 本地文稿</div>
+        <div className="article-eyebrow">{t("离线写作 · 本地文稿")}</div>
         <h1 dir="auto">{article.title || "未命名文章"}</h1>
         {elements.length ? (
           elements

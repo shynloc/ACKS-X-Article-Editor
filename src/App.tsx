@@ -12,6 +12,8 @@ import {
   DotsThree,
   X,
   CheckCircle,
+  Info,
+  Warning,
   WarningCircle,
   DownloadSimple,
   CaretRight,
@@ -80,6 +82,7 @@ type Panel =
   | "menu"
   | "manual-x"
   | "direct-x"
+  | "publish"
   | "account"
   | null;
 const boot = async () => {
@@ -772,9 +775,14 @@ export function App() {
         </div>
         <div className="header-context">{t("本地写作")}</div>
         <div className="header-actions">
-          <div className="theme-switch" aria-label={t("界面主题")}>
+          <div
+            className="theme-switch"
+            role="radiogroup"
+            aria-label={t("界面主题")}
+          >
             <button
-              aria-pressed={theme === "light"}
+              role="radio"
+              aria-checked={theme === "light"}
               aria-label={t("浅色")}
               onClick={() => setTheme("light")}
             >
@@ -782,7 +790,8 @@ export function App() {
               <span>{t("浅色")}</span>
             </button>
             <button
-              aria-pressed={theme === "dark"}
+              role="radio"
+              aria-checked={theme === "dark"}
               aria-label={t("深色")}
               onClick={() => setTheme("dark")}
             >
@@ -790,15 +799,21 @@ export function App() {
               <span>{t("深色")}</span>
             </button>
           </div>
-          <div className="language-switch" aria-label="Language">
+          <div
+            className="language-switch"
+            role="radiogroup"
+            aria-label="Language"
+          >
             <button
-              aria-pressed={language === "zh-CN"}
+              role="radio"
+              aria-checked={language === "zh-CN"}
               onClick={() => setLanguage("zh-CN")}
             >
               中
             </button>
             <button
-              aria-pressed={language === "en"}
+              role="radio"
+              aria-checked={language === "en"}
               onClick={() => setLanguage("en")}
             >
               EN
@@ -819,21 +834,14 @@ export function App() {
             {t("账号")}
           </button>
           <button
-            className="secondary-button header-publish-button"
-            onClick={() => setPanel("manual-x")}
-          >
-            <XLogo size={17} />
-            {t("手动发布到 X")}
-          </button>
-          <button
             className="primary-button header-publish-button"
-            onClick={() => setPanel("direct-x")}
+            onClick={() => setPanel("publish")}
           >
             <PaperPlaneTilt size={17} />
-            {t("直接发布到 X")}
+            {t("发布")}
           </button>
           <button
-            className="primary-button"
+            className="secondary-button header-export-button"
             onClick={() => setPanel("export")}
             disabled={busy}
           >
@@ -1222,8 +1230,10 @@ export function App() {
               >
                 {i.severity === "error" ? (
                   <WarningCircle size={20} />
+                ) : i.severity === "warning" ? (
+                  <Warning size={20} />
                 ) : (
-                  <CheckCircle size={20} />
+                  <Info size={20} />
                 )}
                 <span>
                   {localizeIssue(i.code, i.message, language)}
@@ -1258,8 +1268,8 @@ export function App() {
               "X 没有资源包导入入口。按下面顺序把标题、正文和图片放入 X Article 编辑器；你的内容不会由本站发送给 X。",
             )}
           </p>
-          <ol className="publish-steps">
-            <li>
+          <div className="publish-steps">
+            <div className="publish-step">
               <strong>{t("打开 X Articles")}</strong>
               <span>
                 {t("未登录时 X 会先显示登录页；登录后进入 Articles 页面。")}
@@ -1273,8 +1283,8 @@ export function App() {
                 <ArrowSquareOut size={17} />
                 {t("打开 X Articles")}
               </a>
-            </li>
-            <li>
+            </div>
+            <div className="publish-step">
               <strong>{t("复制并粘贴标题")}</strong>
               <button
                 className="secondary-button"
@@ -1282,10 +1292,10 @@ export function App() {
                 onClick={() => copyForX("title")}
               >
                 <Copy size={16} />
-                复制标题
+                {t("复制标题")}
               </button>
-            </li>
-            <li>
+            </div>
+            <div className="publish-step">
               <strong>{t("复制并粘贴正文")}</strong>
               <span>{t("正文不含标题、封面和图片，粘贴后请检查格式。")}</span>
               <button
@@ -1294,19 +1304,52 @@ export function App() {
                 onClick={() => copyForX("body")}
               >
                 <Copy size={16} />
-                复制正文
+                {t("复制正文")}
               </button>
-            </li>
-            <li>
+            </div>
+            <div className="publish-step">
               <strong>{t("逐张插入图片")}</strong>
               <span>
                 {t(
                   "表格、代码块和本地图片请在右侧预览中使用“复制图片”或“下载 PNG”。外链图床地址只能成为链接，不能替代 X 原生图片上传。",
                 )}
               </span>
-            </li>
-          </ol>
+            </div>
+          </div>
           {copyFeedback && <p className="success-note">{copyFeedback}</p>}
+        </Modal>
+      )}
+      {panel === "publish" && (
+        <Modal title={t("发布到 X")} close={() => setPanel(null)}>
+          <p className="dialog-intro">
+            {t(
+              "选择适合当前文稿的发布方式。手动发布不需要账号；直接发布会先创建 X 草稿，并在最终公开前再次确认。",
+            )}
+          </p>
+          <div className="publish-choice-grid">
+            <button
+              className="publish-choice-card"
+              onClick={() => setPanel("manual-x")}
+            >
+              <XLogo size={28} />
+              <strong>{t("手动发布")}</strong>
+              <span>
+                {t("复制标题、正文和图片，由你在 X Article 编辑器中完成检查。")}
+              </span>
+            </button>
+            <button
+              className="publish-choice-card recommended"
+              onClick={() => setPanel("direct-x")}
+            >
+              <PaperPlaneTilt size={28} />
+              <strong>{t("创建 X 草稿")}</strong>
+              <span>
+                {t(
+                  "连接自己的 Client ID，上传媒体并创建草稿；公开发布仍需确认。",
+                )}
+              </span>
+            </button>
+          </div>
         </Modal>
       )}
       {panel === "direct-x" && (
@@ -1361,48 +1404,52 @@ export function App() {
               assets/ + manifest.json <span>原图、派生图与哈希清单</span>
             </li>
           </ul>
-          <div className="secondary-exports">
+          <div className="export-actions">
+            <div className="secondary-exports">
+              <button
+                onClick={() => {
+                  downloadBlob(
+                    new Blob([`# ${article.title}\n\n${article.body}`], {
+                      type: "text/markdown;charset=utf-8",
+                    }),
+                    `${safeFilename(article.title)}.md`,
+                  );
+                  setNotice("已生成 Markdown 下载；图片不包含在单文件中");
+                }}
+              >
+                仅 Markdown
+              </button>
+              <button
+                onClick={() =>
+                  downloadBlob(
+                    new Blob([JSON.stringify(conversion, null, 2)], {
+                      type: "application/json",
+                    }),
+                    "conversion.json",
+                  )
+                }
+              >
+                转换 JSON
+              </button>
+              <button onClick={() => doExport(true)} disabled={busy}>
+                导出恢复包
+              </button>
+            </div>
             <button
-              onClick={() => {
-                downloadBlob(
-                  new Blob([`# ${article.title}\n\n${article.body}`], {
-                    type: "text/markdown;charset=utf-8",
-                  }),
-                  `${safeFilename(article.title)}.md`,
-                );
-                setNotice("已生成 Markdown 下载；图片不包含在单文件中");
-              }}
-            >
-              仅 Markdown
-            </button>
-            <button
-              onClick={() =>
-                downloadBlob(
-                  new Blob([JSON.stringify(conversion, null, 2)], {
-                    type: "application/json",
-                  }),
-                  "conversion.json",
-                )
+              className="primary-button wide"
+              disabled={
+                busy ||
+                errors.length > 0 ||
+                Object.keys(renderErrors).length > 0
               }
+              onClick={() => doExport()}
             >
-              转换 JSON
+              {busy ? "正在生成并校验资源包…" : "导出完整资源包"}
             </button>
-            <button onClick={() => doExport(true)} disabled={busy}>
-              导出恢复包
-            </button>
+            <p className="fine-print">
+              生成下载不等于文件已经落盘。请检查下载结果，重要文稿建议重新导入自检。
+            </p>
           </div>
-          <button
-            className="primary-button wide"
-            disabled={
-              busy || errors.length > 0 || Object.keys(renderErrors).length > 0
-            }
-            onClick={() => doExport()}
-          >
-            {busy ? "正在生成并校验资源包…" : "导出完整资源包"}
-          </button>
-          <p className="fine-print">
-            生成下载不等于文件已经落盘。请检查下载结果，重要文稿建议重新导入自检。
-          </p>
         </Modal>
       )}
       {panel === "history" && (

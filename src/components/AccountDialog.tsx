@@ -34,6 +34,7 @@ export function AccountDialog({
 }) {
   const { t, language } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
+  const usernameInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<XStatus>();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
@@ -60,6 +61,7 @@ export function AccountDialog({
   };
   useEffect(() => {
     dialog.current?.showModal();
+    requestAnimationFrame(() => usernameInput.current?.focus());
     refresh().catch((e) =>
       setError(
         localizeKnownMessage(
@@ -281,24 +283,35 @@ export function AccountDialog({
           </>
         ) : (
           <>
-            <div className="account-tabs">
+            <div className="account-tabs" role="tablist">
               <button
-                aria-pressed={mode === "login"}
+                id="account-login-tab"
+                role="tab"
+                aria-selected={mode === "login"}
                 onClick={() => setMode("login")}
               >
                 {t("登录")}
               </button>
               <button
-                aria-pressed={mode === "register"}
+                id="account-register-tab"
+                role="tab"
+                aria-selected={mode === "register"}
                 onClick={() => setMode("register")}
               >
                 {t("邀请码注册")}
               </button>
             </div>
-            <div className="account-form">
+            <div
+              className="account-form"
+              role="tabpanel"
+              aria-labelledby={
+                mode === "login" ? "account-login-tab" : "account-register-tab"
+              }
+            >
               <label>
                 <span>{t("用户名")}</span>
                 <input
+                  ref={usernameInput}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
