@@ -1605,6 +1605,72 @@ dialog::backdrop {
   display: grid;
   gap: 10px;
 }
+.api-token-panel {
+  margin-top: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.api-token-panel summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.api-token-panel[open] {
+  display: grid;
+  gap: 10px;
+}
+.api-token-panel label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.api-token-panel input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--input);
+}
+.new-api-token {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--warn);
+  border-radius: 5px;
+}
+.new-api-token span {
+  grid-column: 1 / -1;
+  color: var(--warn);
+  font-size: 13px;
+}
+.new-api-token code {
+  overflow-wrap: anywhere;
+  padding: 8px;
+  background: var(--accent-soft);
+}
+.api-token-list {
+  border-top: 1px solid var(--line);
+}
+.api-token-row {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.api-token-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.api-token-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .admin-panel {
   margin-top: 20px;
 }
@@ -1725,6 +1791,55 @@ dialog::backdrop {
   display: grid;
   gap: 14px;
   margin-top: 18px;
+}
+.cloud-migration-summary {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 5px 12px;
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+.cloud-migration-summary > svg {
+  grid-row: 1 / span 2;
+  color: var(--accent);
+}
+.cloud-migration-summary span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.cloud-migration-actions {
+  display: grid;
+  gap: 10px;
+}
+.cloud-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.cloud-state.synced {
+  color: var(--accent);
+}
+.cloud-state.error {
+  color: var(--error);
+}
+.cloud-state svg {
+  width: 15px;
+  height: 15px;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .x-connect-card label {
   display: grid;
@@ -2123,6 +2238,11 @@ dialog::backdrop {
   }
   .export-state {
     font-size: 10px;
+  }
+  .cloud-state {
+    width: 26px;
+    justify-content: center;
+    font-size: 0;
   }
   .remote-state {
     display: none;

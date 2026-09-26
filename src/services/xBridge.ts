@@ -1,4 +1,4 @@
-import type { MediaBinding } from "../core/types";
+import type { Article, Asset, MediaBinding } from "../core/types";
 
 export interface XStatus {
   deploymentMode: "hosted" | "selfhost";
@@ -28,6 +28,19 @@ export interface XWorkflow {
   articleId?: string;
   requestHash?: string;
 }
+export interface CloudArticleRecord {
+  article: Article;
+  cloudRevision: number;
+  serverUpdatedAt: number;
+}
+export interface ApiTokenRecord {
+  id: string;
+  name: string;
+  scopes: string[];
+  createdAt: number;
+  lastUsedAt?: number | null;
+  revoked: boolean;
+}
 let csrf = "";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/x${path}`, {
@@ -41,8 +54,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new Error(payload.error || `X 发布桥返回 ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(
+      payload.error || `X 发布桥返回 ${response.status}`,
+    ) as Error & { status?: number; cloudRevision?: number };
+    error.status = response.status;
+    if (Number.isInteger(payload.cloudRevision))
+      error.cloudRevision = payload.cloudRevision;
+    throw error;
+  }
   return payload as T;
 }
 export async function getXStatus() {
@@ -114,6 +134,55 @@ export const revokeInvite = (inviteId: string) =>
   request<{ ok: true }>("/admin/invites/revoke", {
     method: "POST",
     body: JSON.stringify({ inviteId }),
+  });
+export const listApiTokens = () =>
+  request<{ tokens: ApiTokenRecord[] }>("/account/tokens/list", {
+    method: "POST",
+    body: "{}",
+  });
+export const createApiToken = (name: string, scopes?: string[]) =>
+  request<{
+    id: string;
+    name: string;
+    scopes: string[];
+    token: string;
+  }>("/account/tokens/create", {
+    method: "POST",
+    body: JSON.stringify({ name, scopes }),
+  });
+export const revokeApiToken = (tokenId: string) =>
+  request<{ ok: true }>("/account/tokens/revoke", {
+    method: "POST",
+    body: JSON.stringify({ tokenId }),
+  });
+export const listCloudArticles = () =>
+  request<{
+    articles: CloudArticleRecord[];
+    storageUsed: number;
+    storageLimit: number;
+  }>("/cloud/articles/list", { method: "POST", body: "{}" });
+export const uploadCloudAsset = async (asset: Asset, blob: Blob) =>
+  request<{ asset: Asset }>("/cloud/assets/upload", {
+    method: "POST",
+    body: JSON.stringify({
+      asset: { ...asset, data: await base64(blob) },
+    }),
+  });
+export const upsertCloudArticle = (
+  article: Article,
+  baseRevision: number,
+  mutationId: string,
+) =>
+  request<CloudArticleRecord>("/cloud/articles/upsert", {
+    method: "POST",
+    body: JSON.stringify({ article, baseRevision, mutationId }),
+  });
+export const getCloudAsset = (assetId: string) =>
+  request<{
+    asset: Asset & { data: string };
+  }>("/cloud/assets/get", {
+    method: "POST",
+    body: JSON.stringify({ assetId }),
   });
 export const updateAccountByAdmin = (
   userId: string,

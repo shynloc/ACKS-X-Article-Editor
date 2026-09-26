@@ -23,7 +23,7 @@
 
 ACKS X Article Editor 面向习惯 Markdown 工作流的 X Article 写作者。它把**本地写作、X 格式转换和远端发布**拆成清楚的阶段：文稿与原图默认保存在浏览器；转换器提前显示图片化、降级和缺失资源；发布时可以手动复制，也可以用自己的 X Developer Client ID 创建草稿并确认发布。
 
-> **当前版本：0.3.0 · Public Preview**<br>
+> **当前版本：0.4.0 · Public Preview**<br>
 > 2026-09-01 已真实完成 OAuth、正文图片、表格图片、Article 草稿和正式发布验证。仓库公开，自部署默认不限直发次数；在线体验站使用邀请码账号控制自动发布额度。
 
 ## 为什么做这个项目
@@ -49,6 +49,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 | Markdown 编辑 | CodeMirror 6、H1–H6、粗体、斜体、删除线、引用、列表、任务列表、表格、代码、链接、图片、脚注、公式与 Mermaid 输入 |
 | 列表输入      | 回车自动继续列表；有序列表在源文中生成真实递增编号；空项再次回车退出                                             |
 | 本地保存      | IndexedDB 事务、自动保存、版本快照、跨标签 revision 冲突保护                                                     |
+| 私有云同步    | 登录后跨设备同步文章、原图与离线副本；首次迁移明确确认；revision 冲突保护                                        |
 | 文稿管理      | 最近编辑 / 标题 / 创建时间排序，本地固定，完整标题提示                                                           |
 | 图片          | PNG、JPEG、静态 WebP；文件选择、粘贴、拖入、缺图重新关联                                                         |
 | X 转换        | Markdown AST → X Content State；标题、行内样式、列表、引用、链接、图片与分隔线                                   |
@@ -60,6 +61,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 | 离线          | 首次完整加载后缓存应用外壳；更新由用户确认；`/api/` 永远直连网络                                                 |
 | 界面语言      | 中文 / English，浏览器语言自动检测，手动切换并本地记忆                                                           |
 | 体验账号      | Hosted 模式邀请码注册、普通账号一次直发、管理员不限次数、邀请码撤销与管理员审计                                  |
+| Agent 接入    | 可撤销 API Token、幂等 REST API、stdio MCP、完整 Markdown 与本地图片写入                                         |
 
 ## 两种发布方式
 
@@ -90,13 +92,15 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 
 访问：[https://xeditor.acks.com.cn](https://xeditor.acks.com.cn)
 
-| 使用方式       | 权限                                               |
-| -------------- | -------------------------------------------------- |
-| 不登录         | 本地写作、预览、校验、导入导出、手动发布           |
-| 普通邀请码账号 | 使用自己的 Client ID 完成一次完整自动发布          |
-| 管理员         | 自动发布不限次数，可管理邀请码、体验额度和审计记录 |
+| 使用方式       | 权限                                                |
+| -------------- | --------------------------------------------------- |
+| 不登录         | 本地写作、预览、校验、导入导出、手动发布            |
+| 普通邀请码账号 | 私有云文稿库；使用自己的 Client ID 完成一次自动发布 |
+| 管理员         | 云文稿库；不限自动发布次数；管理邀请码、额度和审计  |
 
-登录只控制直接发布权限，**不会把本地文稿同步到服务器**。如果只是写作和手动发布，可以始终不登录。
+不登录时，文稿仍然只保存在当前浏览器。登录后会启用私有云端文稿库，但首次登录会先询问是上传本地文稿，还是让它们继续仅保存在当前设备，不会静默上传。
+
+Agent 接入说明见 [docs/AGENT_API.md](docs/AGENT_API.md)。
 
 ## 架构
 
@@ -106,6 +110,7 @@ X Article 自带的是常规富文本编辑器。对于已经使用 Markdown 或
 Browser
 ├── React + CodeMirror
 ├── IndexedDB：文稿、图片 Blob、历史版本
+├── Cloud Sync：登录用户的跨设备文章与图片缓存
 ├── Markdown AST：转换、校验、降级报告
 ├── Canvas + Shiki：表格和代码 PNG
 └── ZIP + SHA-256：资源包与恢复
@@ -115,7 +120,8 @@ Browser
 Node Publish Bridge
 ├── OAuth 2.0 PKCE
 ├── AES-256-GCM token encryption
-├── SQLite：会话、邀请码、额度、草稿记录
+├── SQLite：会话、邀请码、云端文稿、图片与版本记录
+├── API Token、Agent REST API 与 MCP 桥接
 └── X Media → Article Draft → Publish
 ```
 
@@ -124,23 +130,23 @@ Node Publish Bridge
 - **editor**：非特权 Nginx，只提供静态应用并代理 `/api/x/`；
 - **bridge**：Node.js 发布桥，仅在 Compose 内网监听，不映射公网端口。
 
-文稿数据库在浏览器 IndexedDB；服务端 SQLite 不保存文稿库，只保存账号权限、加密 OAuth 会话和远端草稿记录。
+匿名用户的文稿只在浏览器 IndexedDB。登录用户明确启用同步后，服务端 SQLite 保存加密的云端文稿与图片，本地 IndexedDB 继续作为离线副本。
 
 ## 技术栈
 
-| 层       | 技术                                                                    |
-| -------- | ----------------------------------------------------------------------- |
-| 应用     | React 19、TypeScript 7、Vite 8                                          |
-| 编辑器   | CodeMirror 6                                                            |
-| 本地数据 | Dexie 4、IndexedDB                                                      |
-| Markdown | unified、remark-parse、remark-gfm                                       |
-| 校验     | Ajv 8、JSON Schema                                                      |
-| 图像     | Canvas 2D、Shiki 4                                                      |
-| 资源包   | fflate、Web Crypto                                                      |
-| 后台任务 | Web Workers                                                             |
-| 发布桥   | Node.js 24、SQLite、OAuth 2.0 PKCE、AES-256-GCM                         |
-| 运行     | Docker Compose、非特权 Nginx、Caddy / Nginx HTTPS                       |
-| 测试     | Vitest、fake-indexeddb、桥接集成测试、axe、七档截图、键盘与 Worker 回归 |
+| 层       | 技术                                                                           |
+| -------- | ------------------------------------------------------------------------------ |
+| 应用     | React 19、TypeScript 7、Vite 8                                                 |
+| 编辑器   | CodeMirror 6                                                                   |
+| 本地数据 | Dexie 4、IndexedDB                                                             |
+| Markdown | unified、remark-parse、remark-gfm                                              |
+| 校验     | Ajv 8、JSON Schema                                                             |
+| 图像     | Canvas 2D、Shiki 4                                                             |
+| 资源包   | fflate、Web Crypto                                                             |
+| 后台任务 | Web Workers                                                                    |
+| 发布桥   | Node.js 24、SQLite、OAuth 2.0 PKCE、AES-256-GCM                                |
+| 运行     | Docker Compose、非特权 Nginx、Caddy / Nginx HTTPS                              |
+| 测试     | Vitest、fake-indexeddb、桥接与 MCP 集成测试、axe、七档截图、键盘与 Worker 回归 |
 
 依赖版本由 `pnpm-lock.yaml` 固定。
 
@@ -243,6 +249,8 @@ xeditor.example.com {
 - 文稿、原图与历史默认保存在当前浏览器 IndexedDB；
 - 不包含统计 SDK、第三方字体请求、远程图片预取或 X 嵌帖脚本；
 - OAuth token 使用 AES-256-GCM 加密后存入服务端 SQLite；
+- 云端文章 JSON 与图片内容使用 AES-256-GCM 加密后存入 SQLite；
+- Agent API Token 只保存 SHA-256 摘要，支持独立权限与随时撤销；
 - 密码使用 scrypt 强哈希；邀请码只保存 SHA-256 摘要且只能使用一次；
 - Cookie 使用 HttpOnly、SameSite，HTTPS 下同时使用 Secure；
 - 发布 API 检查 Origin、CSRF、账号额度、工作流归属、媒体格式与体积；
@@ -255,7 +263,7 @@ xeditor.example.com {
 
 ## 验证状态
 
-- `51` 项 Vitest 测试通过；
+- `53` 项 Vitest 测试通过；
 - GitHub Actions Core checks 通过；
 - 生产 Worker、Service Worker API bypass 和 Sites 路由回归通过；
 - 320–1920px 七档截图、键盘焦点循环、200% 等效缩放和 axe 自动检查通过；

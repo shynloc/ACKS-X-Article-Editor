@@ -117,6 +117,42 @@ export async function listArticles() {
     b.updatedAt.localeCompare(a.updatedAt),
   );
 }
+export async function applyCloudArticle(
+  article: Article,
+  blobs: StoredAsset[] = [],
+  database = db,
+) {
+  const current = await database.articles.get(article.id);
+  const next = {
+    ...article,
+    revision: current
+      ? Math.max(current.revision + 1, article.revision)
+      : Math.max(1, article.revision),
+  };
+  await database.transaction(
+    "rw",
+    database.articles,
+    database.snapshots,
+    database.assets,
+    async () => {
+      if (blobs.length) await database.assets.bulkPut(blobs);
+      for (const asset of next.assets)
+        if (!(await database.assets.get(asset.id)))
+          throw new Error(`云端图片资源缺失：${asset.filename}`);
+      await database.articles.put(next);
+      await database.snapshots.add({
+        articleId: next.id,
+        revision: next.revision,
+        article: next,
+        at: new Date().toISOString(),
+        reason: "云端同步",
+        pinned: true,
+      });
+    },
+  );
+  changes?.postMessage({ id: next.id, revision: next.revision });
+  return next;
+}
 export async function seedLibrary(database = db) {
   const wasEmpty = (await database.articles.count()) === 0;
   if (!(await database.articles.get(INTRO_ARTICLE_ID))) {

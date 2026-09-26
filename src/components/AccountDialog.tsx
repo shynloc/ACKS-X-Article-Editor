@@ -18,16 +18,20 @@ import {
 } from "@phosphor-icons/react";
 import {
   changeAccountPassword,
+  createApiToken,
   createInvite,
   getAdminOverview,
   getXStatus,
   loginAccount,
+  listApiTokens,
   logoutAccount,
   registerAccount,
   revokeInvite,
+  revokeApiToken,
   updateAccountByAdmin,
   type XAccount,
   type XStatus,
+  type ApiTokenRecord,
 } from "../services/xBridge";
 import { localizeKnownMessage, useI18n } from "../i18n";
 import { trapDialogTab } from "./dialogFocus";
@@ -35,9 +39,11 @@ import { trapDialogTab } from "./dialogFocus";
 export function AccountDialog({
   close,
   onNotice,
+  onAccountChanged,
 }: {
   close: () => void;
   onNotice: (message: string) => void;
+  onAccountChanged: (account: XAccount | null) => void;
 }) {
   const { t, language } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -75,10 +81,21 @@ export function AccountDialog({
   const [newInviteId, setNewInviteId] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
+  const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([]);
+  const [tokenName, setTokenName] = useState("My Agent");
+  const [newApiToken, setNewApiToken] = useState("");
+  const lastAccountId = useRef<string | null>(null);
   const refresh = async () => {
     const next = await getXStatus();
     setStatus(next);
-    if (next.account?.role === "admin") setOverview(await getAdminOverview());
+    if (lastAccountId.current !== (next.account?.id ?? null)) {
+      lastAccountId.current = next.account?.id ?? null;
+      onAccountChanged(next.account);
+    }
+    if (next.account) {
+      setApiTokens((await listApiTokens()).tokens);
+      if (next.account.role === "admin") setOverview(await getAdminOverview());
+    } else setApiTokens([]);
   };
   useEffect(() => {
     dialog.current?.showModal();
@@ -197,6 +214,7 @@ export function AccountDialog({
                 onClick={() =>
                   run(async () => {
                     await logoutAccount();
+                    onAccountChanged(null);
                     onNotice(t("已退出登录"));
                     close();
                   })
@@ -262,6 +280,89 @@ export function AccountDialog({
               >
                 {t("更新密码")}
               </button>
+            </details>
+            <details className="api-token-panel">
+              <summary>
+                <Key />
+                {t("Agent API Token")}
+              </summary>
+              <p className="privacy-note">
+                <LockSimple />
+                {t(
+                  "Token 允许 Agent 读写你的云端文章和图片。Token 只显示一次，请只交给你信任的 Agent，并可随时撤销。",
+                )}
+              </p>
+              <label>
+                <span>{t("Token 名称")}</span>
+                <input
+                  value={tokenName}
+                  maxLength={80}
+                  onChange={(event) => setTokenName(event.target.value)}
+                  placeholder="My Agent"
+                />
+              </label>
+              <button
+                className="secondary-button"
+                disabled={busy || !tokenName.trim()}
+                onClick={() =>
+                  run(async () => {
+                    const result = await createApiToken(tokenName.trim());
+                    setNewApiToken(result.token);
+                    setApiTokens((await listApiTokens()).tokens);
+                  })
+                }
+              >
+                <Key />
+                {t("创建 Token")}
+              </button>
+              {newApiToken && (
+                <div className="new-api-token">
+                  <span>{t("请立即复制，关闭后不会再次显示。")}</span>
+                  <code>{newApiToken}</code>
+                  <button
+                    className="icon-button"
+                    aria-label={t("复制 Token")}
+                    onClick={() => navigator.clipboard.writeText(newApiToken)}
+                  >
+                    <Copy />
+                  </button>
+                </div>
+              )}
+              <div className="api-token-list">
+                {apiTokens.map((item) => (
+                  <div className="api-token-row" key={item.id}>
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>
+                        {item.revoked
+                          ? t("已撤销")
+                          : item.lastUsedAt
+                            ? t("最近使用：{time}", {
+                                time: formatAdminTime(item.lastUsedAt),
+                              })
+                            : t("尚未使用")}
+                      </small>
+                    </span>
+                    {!item.revoked && (
+                      <button
+                        className="quiet-button danger-button"
+                        disabled={busy}
+                        onClick={() => {
+                          if (!confirm(t("确认撤销这个 Token？"))) return;
+                          void run(async () => {
+                            await revokeApiToken(item.id);
+                            setApiTokens((await listApiTokens()).tokens);
+                            if (newApiToken) setNewApiToken("");
+                            onNotice(t("Token 已撤销"));
+                          });
+                        }}
+                      >
+                        {t("撤销")}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </details>
             {account.role === "admin" && (
               <section className="admin-panel">
@@ -538,7 +639,7 @@ export function AccountDialog({
             <p className="privacy-note">
               <LockSimple />
               {t(
-                "登录只用于控制直接发布权限。文章、图片和历史仍保存在当前浏览器，不会因为登录自动上传到服务器。",
+                "登录后可以启用私有云端文稿库。首次登录会先询问如何处理本地文稿，不会静默上传；退出后云端专属缓存会从当前浏览器移除。",
               )}
             </p>
           </>

@@ -39,6 +39,7 @@ const english: Record<string, string> = {
   归档: "Archived",
   回收站: "Trash",
   内容仅保存在此浏览器: "Content stays in this browser",
+  "本地副本 · 私有云同步": "Local copy · private cloud sync",
   已准备好离线使用: "Ready for offline use",
   离线资源准备中: "Preparing offline resources",
   离线工作中: "Working offline",
@@ -172,8 +173,46 @@ const english: Record<string, string> = {
   复制邀请码: "Copy invite code",
   "3–32 位": "3–32 characters",
   "至少 12 位": "At least 12 characters",
-  "登录只用于控制直接发布权限。文章、图片和历史仍保存在当前浏览器，不会因为登录自动上传到服务器。":
-    "Signing in controls direct publishing only. Articles, images, and history remain in this browser and are not uploaded automatically.",
+  "登录后可以启用私有云端文稿库。首次登录会先询问如何处理本地文稿，不会静默上传；退出后云端专属缓存会从当前浏览器移除。":
+    "Signing in enables a private cloud library. On first sign-in, the app asks what to do with local drafts and never uploads them silently; cloud-only caches are removed from this browser after sign-out.",
+  "Agent API Token": "Agent API Token",
+  "Token 允许 Agent 读写你的云端文章和图片。Token 只显示一次，请只交给你信任的 Agent，并可随时撤销。":
+    "Tokens let an Agent read and write your cloud articles and images. A token is shown once; share it only with an Agent you trust and revoke it at any time.",
+  "Token 名称": "Token name",
+  "创建 Token": "Create token",
+  "请立即复制，关闭后不会再次显示。":
+    "Copy this token now. It will not be shown again after closing.",
+  "复制 Token": "Copy token",
+  已撤销: "Revoked",
+  "最近使用：{time}": "Last used: {time}",
+  尚未使用: "Never used",
+  "确认撤销这个 Token？": "Revoke this token?",
+  "Token 已撤销": "Token revoked",
+  "检测到多设备修改，已保留 {count} 篇本地冲突副本。":
+    "Concurrent edits were detected. {count} local conflict copies were preserved.",
+  "云端同步失败，本地文稿仍然安全。":
+    "Cloud sync failed. Your local drafts remain safe.",
+  "本地文稿已上传到你的云端文稿库。":
+    "Local drafts were uploaded to your cloud library.",
+  "这些文稿继续仅保存在当前浏览器。":
+    "These drafts will remain only in this browser.",
+  "当前文稿已同步到云端。": "The current draft is synced to the cloud.",
+  启用云端文稿库: "Enable cloud library",
+  "你已经登录。云端文稿会在不同设备间同步，本地仍保留离线副本。请选择如何处理当前浏览器已有的文稿。":
+    "You are signed in. Cloud drafts sync across devices while an offline copy remains local. Choose what to do with drafts already in this browser.",
+  "发现 {count} 篇仅本地文稿": "Found {count} local-only drafts",
+  "正在上传文稿和图片…": "Uploading drafts and images…",
+  上传全部到云端: "Upload all to cloud",
+  继续仅保存在这台设备: "Keep only on this device",
+  "不会静默上传。选择仅本地后，你仍可在状态栏把当前文稿单独同步到云端。":
+    "Nothing is uploaded silently. After choosing local-only, you can still sync the current draft from the status bar.",
+  "云端空间：{used} / {limit}": "Cloud storage: {used} / {limit}",
+  登录后启用云端文稿库: "Sign in to enable the cloud library",
+  本地模式: "Local mode",
+  仅本地: "Local only",
+  云同步异常: "Cloud sync error",
+  正在同步: "Syncing",
+  已同步云端: "Synced to cloud",
   启用: "Enable",
   停用: "Disable",
   "+1 额度": "+1 quota",

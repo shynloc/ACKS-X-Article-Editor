@@ -29,6 +29,8 @@ import {
   PushPin,
   PushPinSlash,
   SortAscending,
+  CloudArrowUp,
+  ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
 import { MarkdownToolbar } from "./components/MarkdownToolbar";
@@ -76,6 +78,19 @@ import { buildClipboardBody } from "./core/clipboardBody";
 import { copyBody, copyTitle, copyErrorMessage } from "./services/clipboard";
 import { APP_VERSION } from "./core/version";
 import { localizeIssue, useI18n } from "./i18n";
+import { getXStatus, type XAccount } from "./services/xBridge";
+import {
+  cloudMigrationDone,
+  detachCloudAccount,
+  finishCloudMigration,
+  isArticleLocalOnly,
+  localArticlesMissingFromCloud,
+  localOnlyArticles,
+  makeArticleCloudEnabled,
+  pullCloudLibrary,
+  pushCloudArticle,
+  setLocalOnlyArticles,
+} from "./services/cloudSync";
 
 type Panel =
   | "validation"
@@ -88,6 +103,7 @@ type Panel =
   | "direct-x"
   | "publish"
   | "account"
+  | "cloud-sync"
   | null;
 type LibrarySort = "updated" | "title" | "created";
 function storedLibrarySort(): LibrarySort {
@@ -214,7 +230,13 @@ export function App() {
     }),
     [fatal, setFatal] = useState("");
   const [copying, setCopying] = useState(false),
-    [copyFeedback, setCopyFeedback] = useState("");
+    [copyFeedback, setCopyFeedback] = useState(""),
+    [account, setAccount] = useState<XAccount | null>(null),
+    [cloudState, setCloudState] = useState<
+      "local" | "syncing" | "synced" | "error"
+    >("local"),
+    [cloudStorage, setCloudStorage] = useState({ used: 0, limit: 0 }),
+    [pendingLocalArticles, setPendingLocalArticles] = useState<Article[]>([]);
   const editor = useRef<EditorHandle>(null),
     fileInput = useRef<HTMLInputElement>(null),
     coverInput = useRef<HTMLInputElement>(null),
@@ -229,7 +251,11 @@ export function App() {
     maxTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined),
     worker = useRef<Worker | null>(null),
     requestId = useRef(0),
-    associatePath = useRef("");
+    associatePath = useRef(""),
+    accountRef = useRef<XAccount | null>(null),
+    cloudReady = useRef(false),
+    cloudStarted = useRef(false),
+    cloudPush = useRef<(article: Article) => void>(() => {});
   useEffect(() => {
     const url = new URL(location.href);
     const outcome = url.searchParams.get("x"),
@@ -306,6 +332,7 @@ export function App() {
           setError("");
         }
         void refresh();
+        cloudPush.current(saved);
         return saved;
       })
       .catch((e) => {
@@ -351,6 +378,106 @@ export function App() {
     },
     [flush],
   );
+  const syncFromCloud = useCallback(
+    async (nextAccount: XAccount, allowMigrationPrompt = true) => {
+      accountRef.current = nextAccount;
+      setAccount(nextAccount);
+      setCloudState("syncing");
+      try {
+        const result = await pullCloudLibrary(nextAccount.id);
+        setCloudStorage({
+          used: result.storageUsed,
+          limit: result.storageLimit,
+        });
+        await refresh();
+        if (
+          draft.current &&
+          result.applied.includes(draft.current.id) &&
+          !dirty.current
+        ) {
+          const updated = await db.articles.get(draft.current.id);
+          if (updated) load(updated);
+        }
+        if (result.conflicts.length)
+          setNotice(
+            t("检测到多设备修改，已保留 {count} 篇本地冲突副本。", {
+              count: result.conflicts.length,
+            }),
+          );
+        const missing = await localArticlesMissingFromCloud(result.remoteIds);
+        if (
+          allowMigrationPrompt &&
+          !cloudMigrationDone(nextAccount.id) &&
+          missing.length
+        ) {
+          cloudReady.current = false;
+          setPendingLocalArticles(missing);
+          setPanel("cloud-sync");
+        } else {
+          cloudReady.current = true;
+          setCloudState("synced");
+        }
+      } catch (syncError) {
+        setCloudState("error");
+        setError(
+          syncError instanceof Error
+            ? syncError.message
+            : t("云端同步失败，本地文稿仍然安全。"),
+        );
+      }
+    },
+    [load, refresh, t],
+  );
+  const handleAccountChanged = useCallback(
+    (nextAccount: XAccount | null) => {
+      const previousAccount = accountRef.current;
+      accountRef.current = nextAccount;
+      setAccount(nextAccount);
+      if (!nextAccount) {
+        cloudReady.current = false;
+        setCloudState("local");
+        setPendingLocalArticles([]);
+        if (previousAccount)
+          void detachCloudAccount(previousAccount.id).then(async (removed) => {
+            const items = await listArticles();
+            setLibrary(items);
+            if (draft.current && removed.includes(draft.current.id)) {
+              const fallback = items.find((item) => !item.deletedAt);
+              if (fallback) load(fallback);
+            }
+          });
+        return;
+      }
+      void syncFromCloud(nextAccount);
+    },
+    [load, syncFromCloud],
+  );
+  useEffect(() => {
+    cloudPush.current = (saved) => {
+      const currentAccount = accountRef.current;
+      if (
+        !currentAccount ||
+        !cloudReady.current ||
+        isArticleLocalOnly(currentAccount.id, saved.id)
+      )
+        return;
+      setCloudState("syncing");
+      void pushCloudArticle(currentAccount.id, saved)
+        .then(() => setCloudState("synced"))
+        .catch((syncError: Error & { status?: number }) => {
+          if (syncError.status === 409) {
+            void syncFromCloud(currentAccount, false);
+            return;
+          }
+          setCloudState("error");
+          setError(
+            syncError instanceof Error
+              ? syncError.message
+              : t("云端同步失败，本地文稿仍然安全。"),
+          );
+        });
+    };
+  }, [syncFromCloud, t]);
   useEffect(() => {
     bootPromise ??= boot();
     let active = true;
@@ -378,6 +505,23 @@ export function App() {
       active = false;
     };
   }, [load]);
+  useEffect(() => {
+    if (!article || cloudStarted.current) return;
+    cloudStarted.current = true;
+    getXStatus()
+      .then((result) => {
+        if (result.account) void syncFromCloud(result.account);
+      })
+      .catch(() => {});
+  }, [article, syncFromCloud]);
+  useEffect(() => {
+    if (!account) return;
+    const timer = setInterval(() => {
+      if (navigator.onLine && cloudReady.current)
+        void syncFromCloud(account, false);
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [account, syncFromCloud]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     try {
@@ -544,6 +688,66 @@ export function App() {
       return next;
     });
   }
+  async function uploadPendingLocalArticles() {
+    const currentAccount = accountRef.current;
+    if (!currentAccount) return;
+    setBusy(true);
+    setCloudState("syncing");
+    try {
+      for (const item of pendingLocalArticles) {
+        makeArticleCloudEnabled(currentAccount.id, item.id);
+        await pushCloudArticle(currentAccount.id, item);
+      }
+      finishCloudMigration(currentAccount.id);
+      cloudReady.current = true;
+      setPendingLocalArticles([]);
+      await syncFromCloud(currentAccount, false);
+      setPanel(null);
+      setNotice(t("本地文稿已上传到你的云端文稿库。"));
+    } catch (uploadError) {
+      setCloudState("error");
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : t("云端同步失败，本地文稿仍然安全。"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  function keepPendingArticlesLocal() {
+    const currentAccount = accountRef.current;
+    if (!currentAccount) return;
+    const ids = localOnlyArticles(currentAccount.id);
+    for (const item of pendingLocalArticles) ids.add(item.id);
+    setLocalOnlyArticles(currentAccount.id, ids);
+    finishCloudMigration(currentAccount.id);
+    cloudReady.current = true;
+    setPendingLocalArticles([]);
+    setCloudState("synced");
+    setPanel(null);
+    setNotice(t("这些文稿继续仅保存在当前浏览器。"));
+  }
+  async function syncCurrentArticle() {
+    const currentAccount = accountRef.current;
+    if (!currentAccount || !draft.current) return;
+    setCloudState("syncing");
+    try {
+      const current = await flush();
+      if (!current) return;
+      makeArticleCloudEnabled(currentAccount.id, current.id);
+      await pushCloudArticle(currentAccount.id, current);
+      await syncFromCloud(currentAccount, false);
+      setNotice(t("当前文稿已同步到云端。"));
+    } catch (syncError) {
+      setCloudState("error");
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : t("云端同步失败，本地文稿仍然安全。"),
+      );
+    }
+  }
   async function duplicate() {
     if (!draft.current) return;
     const current = draft.current;
@@ -563,6 +767,7 @@ export function App() {
     );
     load(next);
     await refresh();
+    cloudPush.current(next);
     setNotice("已另存为独立副本");
     setPanel(null);
   }
@@ -671,6 +876,7 @@ export function App() {
         load(await insertArticle(next, blobs, "导入 Markdown"));
       }
       await refresh();
+      if (draft.current) cloudPush.current(draft.current);
       setNotice("导入完成，原有文稿未被覆盖");
     } catch (e) {
       setError(e instanceof Error ? e.message : "导入失败，原有数据未改动。");
@@ -1025,7 +1231,7 @@ export function App() {
           </div>
           <p>
             <LockSimple size={18} />
-            {t("内容仅保存在此浏览器")}
+            {account ? t("本地副本 · 私有云同步") : t("内容仅保存在此浏览器")}
           </p>
           <button className="storage-link" onClick={() => setPanel("about")}>
             {offline.online ? (
@@ -1227,6 +1433,38 @@ export function App() {
           {Array.from(article.body).length.toLocaleString()} {t("字符")} ·{" "}
           {conversion?.nodes.length ?? 0} {t("块")}
         </span>
+        <button
+          className={`cloud-state ${cloudState}`}
+          title={
+            account
+              ? t("云端空间：{used} / {limit}", {
+                  used: `${Math.ceil(cloudStorage.used / 1024 / 1024)} MiB`,
+                  limit: `${Math.ceil(cloudStorage.limit / 1024 / 1024)} MiB`,
+                })
+              : t("登录后启用云端文稿库")
+          }
+          onClick={() => {
+            if (!account) setPanel("account");
+            else if (pendingLocalArticles.length) setPanel("cloud-sync");
+            else if (cloudState === "syncing") return;
+            else void syncCurrentArticle();
+          }}
+        >
+          {cloudState === "syncing" ? (
+            <ArrowsClockwise className="spin" />
+          ) : (
+            <CloudArrowUp />
+          )}
+          {!account
+            ? t("本地模式")
+            : isArticleLocalOnly(account.id, article.id)
+              ? t("仅本地")
+              : cloudState === "error"
+                ? t("云同步异常")
+                : cloudState === "syncing"
+                  ? t("正在同步")
+                  : t("已同步云端")}
+        </button>
         <span className="remote-state">{t("尚未创建 X 草稿")}</span>
       </footer>
       {error && (
@@ -1479,7 +1717,62 @@ export function App() {
         />
       )}
       {panel === "account" && (
-        <AccountDialog close={() => setPanel(null)} onNotice={setNotice} />
+        <AccountDialog
+          close={() => setPanel(null)}
+          onNotice={setNotice}
+          onAccountChanged={handleAccountChanged}
+        />
+      )}
+      {panel === "cloud-sync" && (
+        <Modal
+          title={t("启用云端文稿库")}
+          close={() => !busy && setPanel(null)}
+          initialFocus=".cloud-migration-primary"
+        >
+          <p className="dialog-intro">
+            {t(
+              "你已经登录。云端文稿会在不同设备间同步，本地仍保留离线副本。请选择如何处理当前浏览器已有的文稿。",
+            )}
+          </p>
+          <div className="cloud-migration-summary">
+            <CloudArrowUp size={30} />
+            <strong>
+              {t("发现 {count} 篇仅本地文稿", {
+                count: pendingLocalArticles.length,
+              })}
+            </strong>
+            <span>
+              {pendingLocalArticles
+                .slice(0, 4)
+                .map((item) => item.title || t("未命名文章"))
+                .join("、")}
+              {pendingLocalArticles.length > 4 ? "…" : ""}
+            </span>
+          </div>
+          <div className="cloud-migration-actions">
+            <button
+              className="primary-button wide cloud-migration-primary"
+              disabled={busy}
+              onClick={() => void uploadPendingLocalArticles()}
+            >
+              <CloudArrowUp />
+              {busy ? t("正在上传文稿和图片…") : t("上传全部到云端")}
+            </button>
+            <button
+              className="secondary-button wide"
+              disabled={busy}
+              onClick={keepPendingArticlesLocal}
+            >
+              {t("继续仅保存在这台设备")}
+            </button>
+          </div>
+          <p className="privacy-note">
+            <LockSimple />
+            {t(
+              "不会静默上传。选择仅本地后，你仍可在状态栏把当前文稿单独同步到云端。",
+            )}
+          </p>
+        </Modal>
       )}
       {panel === "export" && (
         <Modal

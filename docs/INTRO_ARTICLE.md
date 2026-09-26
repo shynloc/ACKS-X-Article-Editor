@@ -54,7 +54,9 @@ GitHub：[https://github.com/shynloc/ACKS-X-Article-Editor](https://github.com/s
 - [x] 只有当你主动创建 X 草稿时，冻结后的内容和图片才会发送给 X；
 - [ ] 不要求把 Client Secret、Bearer Token 或 Access Token 粘贴进网页。
 
-登录体验账号也不会开启云同步。账号只控制自动发布权限，文章和图片仍然属于当前浏览器。
+不登录时，文章、图片和历史仍然只保存在当前浏览器。登录后可以启用私有云端文稿库，在不同设备继续写作；首次登录会先询问如何处理已有本地文稿，不会静默上传。
+
+你也可以创建可撤销的 Agent API Token，让 Agent 通过 REST API 或 MCP 写入完整 Markdown、封面和正文插图。Agent 写完的文章会出现在云端文稿库里，最后的排版和发布仍由你确认。
 
 ## 从 Markdown 到 X，中间发生了什么
 

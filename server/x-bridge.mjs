@@ -68,6 +68,30 @@ db.exec(`
     target_type TEXT NOT NULL, target_id TEXT, details_json TEXT,
     created_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS cloud_articles (
+    id TEXT NOT NULL, user_id TEXT NOT NULL, cloud_revision INTEGER NOT NULL,
+    article_json TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+    deleted_at INTEGER, PRIMARY KEY(user_id,id)
+  );
+  CREATE INDEX IF NOT EXISTS cloud_articles_updated
+    ON cloud_articles(user_id,updated_at DESC);
+  CREATE TABLE IF NOT EXISTS cloud_assets (
+    id TEXT NOT NULL, user_id TEXT NOT NULL, mime TEXT NOT NULL,
+    filename TEXT NOT NULL, sha256 TEXT NOT NULL, byte_length INTEGER NOT NULL,
+    width INTEGER NOT NULL, height INTEGER NOT NULL, alt TEXT NOT NULL,
+    caption TEXT NOT NULL, data BLOB NOT NULL, created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL, PRIMARY KEY(user_id,id)
+  );
+  CREATE TABLE IF NOT EXISTS api_tokens (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE, scopes TEXT NOT NULL,
+    created_at INTEGER NOT NULL, last_used_at INTEGER, revoked_at INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS api_tokens_user ON api_tokens(user_id,created_at DESC);
+  CREATE TABLE IF NOT EXISTS cloud_mutations (
+    user_id TEXT NOT NULL, mutation_key TEXT NOT NULL, response_json TEXT NOT NULL,
+    created_at INTEGER NOT NULL, PRIMARY KEY(user_id,mutation_key)
+  );
 `);
 function addColumn(table, definition) {
   try {
@@ -160,6 +184,340 @@ function auditAdmin(admin, action, targetType, targetId, details = {}) {
     now(),
   );
 }
+const cloudAssetLimit = 10 * 1024 * 1024;
+const cloudStorageLimit = 200 * 1024 * 1024;
+const validCloudId = (value) => /^[A-Za-z0-9_-]{1,100}$/.test(value);
+const apiTokenHash = (value) =>
+  createHash("sha256")
+    .update(String(value || ""))
+    .digest("hex");
+function requireApiAccount(req, scope) {
+  const match = /^Bearer\s+(.+)$/i.exec(
+    String(req.headers.authorization || ""),
+  );
+  const raw = match?.[1] || "";
+  if (!raw.startsWith("acks_pat_"))
+    throw Object.assign(new Error("API Token 无效。"), { status: 401 });
+  const record = db
+    .prepare(
+      "SELECT t.*,u.username,u.role,u.direct_limit,u.direct_used,u.disabled,u.created_at AS user_created_at FROM api_tokens t JOIN users u ON u.id=t.user_id WHERE t.token_hash=? AND t.revoked_at IS NULL",
+    )
+    .get(apiTokenHash(raw));
+  if (!record || record.disabled)
+    throw Object.assign(new Error("API Token 无效或已撤销。"), { status: 401 });
+  const scopes = String(record.scopes || "").split(" ");
+  if (!scopes.includes(scope))
+    throw Object.assign(new Error("API Token 权限不足。"), { status: 403 });
+  db.prepare("UPDATE api_tokens SET last_used_at=? WHERE id=?").run(
+    now(),
+    record.id,
+  );
+  return {
+    id: record.user_id,
+    username: record.username,
+    role: record.role,
+    disabled: record.disabled,
+    direct_limit: record.direct_limit,
+    direct_used: record.direct_used,
+    created_at: record.user_created_at,
+    tokenId: record.id,
+  };
+}
+function normalizeCloudAsset(value) {
+  if (!value || typeof value !== "object")
+    throw Object.assign(new Error("图片资源格式无效。"), { status: 400 });
+  const mime = String(value.mime || "");
+  if (!/^image\/(png|jpeg|webp)$/.test(mime))
+    throw Object.assign(new Error("云端图片仅支持 PNG、JPEG 和 WebP。"), {
+      status: 400,
+    });
+  const data = String(value.data || "");
+  if (!/^[A-Za-z0-9+/=]+$/.test(data))
+    throw Object.assign(new Error("图片数据不是有效的 Base64。"), {
+      status: 400,
+    });
+  const buffer = Buffer.from(data, "base64");
+  if (!buffer.length || buffer.length > cloudAssetLimit)
+    throw Object.assign(new Error("单张云端图片必须小于 10 MiB。"), {
+      status: 413,
+    });
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  if (value.sha256 && value.sha256 !== hash)
+    throw Object.assign(new Error("图片 SHA-256 校验失败。"), { status: 400 });
+  const id = String(value.id || `asset-${hash}`);
+  if (!validCloudId(id))
+    throw Object.assign(new Error("图片资源 ID 无效。"), { status: 400 });
+  const width = Number(value.width || 0),
+    height = Number(value.height || 0);
+  if (
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < 1 ||
+    height < 1 ||
+    width > 40000 ||
+    height > 40000
+  )
+    throw Object.assign(new Error("图片尺寸无效。"), { status: 400 });
+  return {
+    id,
+    kind: ["cover", "table_png", "code_png"].includes(value.kind)
+      ? value.kind
+      : "image",
+    mime,
+    filename: String(value.filename || `${id}.${mime.split("/")[1]}`).slice(
+      0,
+      250,
+    ),
+    byteLength: buffer.length,
+    sha256: hash,
+    width,
+    height,
+    alt: String(value.alt || "").slice(0, 10000),
+    caption: String(value.caption || "").slice(0, 10000),
+    source:
+      typeof value.source === "string"
+        ? value.source.slice(0, 2 * 1024 * 1024)
+        : undefined,
+    renderKey:
+      typeof value.renderKey === "string" ? value.renderKey : undefined,
+    sourceAssetId:
+      typeof value.sourceAssetId === "string" ? value.sourceAssetId : undefined,
+    buffer,
+  };
+}
+function normalizeCloudArticle(value) {
+  if (!value || typeof value !== "object")
+    throw Object.assign(new Error("文章格式无效。"), { status: 400 });
+  const id = String(value.id || token(18));
+  if (!validCloudId(id))
+    throw Object.assign(new Error("文章 ID 无效。"), { status: 400 });
+  const title = String(value.title || ""),
+    articleBody = String(value.body || "");
+  if (title.length > 20000 || articleBody.length > 2 * 1024 * 1024)
+    throw Object.assign(new Error("文章标题或正文过长。"), { status: 413 });
+  const assets = Array.isArray(value.assets)
+    ? value.assets.slice(0, 2000).map((asset) => ({
+        id: String(asset.id || ""),
+        kind: ["image", "cover", "table_png", "code_png"].includes(asset.kind)
+          ? asset.kind
+          : "image",
+        mime: String(asset.mime || ""),
+        filename: String(asset.filename || "").slice(0, 250),
+        byteLength: Number(asset.byteLength || 0),
+        sha256: String(asset.sha256 || ""),
+        width: Number(asset.width || 0),
+        height: Number(asset.height || 0),
+        alt: String(asset.alt || "").slice(0, 10000),
+        caption: String(asset.caption || "").slice(0, 10000),
+        ...(typeof asset.source === "string"
+          ? { source: asset.source.slice(0, 2 * 1024 * 1024) }
+          : {}),
+        ...(typeof asset.renderKey === "string"
+          ? { renderKey: asset.renderKey }
+          : {}),
+        ...(typeof asset.sourceAssetId === "string"
+          ? { sourceAssetId: asset.sourceAssetId }
+          : {}),
+      }))
+    : [];
+  if (assets.some((asset) => !validCloudId(asset.id)))
+    throw Object.assign(new Error("文章包含无效图片资源 ID。"), {
+      status: 400,
+    });
+  const time = new Date().toISOString();
+  return {
+    schemaVersion: "1.0.0",
+    id,
+    revision: Math.max(
+      0,
+      Number.isInteger(value.revision) ? value.revision : 0,
+    ),
+    title,
+    body: articleBody,
+    ...(typeof value.coverId === "string" ? { coverId: value.coverId } : {}),
+    assets,
+    createdAt: typeof value.createdAt === "string" ? value.createdAt : time,
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : time,
+    ...(Number.isInteger(value.lastExportRevision)
+      ? { lastExportRevision: value.lastExportRevision }
+      : {}),
+    ...(typeof value.lastExportAt === "string"
+      ? { lastExportAt: value.lastExportAt }
+      : {}),
+    ...(value.archived === true ? { archived: true } : {}),
+    ...(typeof value.deletedAt === "string"
+      ? { deletedAt: value.deletedAt }
+      : {}),
+  };
+}
+function cloudArticleRows(userId) {
+  return db
+    .prepare(
+      "SELECT id,cloud_revision,article_json,created_at,updated_at,deleted_at FROM cloud_articles WHERE user_id=? ORDER BY updated_at DESC LIMIT 1000",
+    )
+    .all(userId)
+    .map((row) => ({
+      article: openArticle(row.article_json),
+      cloudRevision: row.cloud_revision,
+      serverUpdatedAt: row.updated_at,
+    }));
+}
+function saveCloudAsset(account, value) {
+  const asset = normalizeCloudAsset(value),
+    stored = db
+      .prepare("SELECT byte_length FROM cloud_assets WHERE user_id=? AND id=?")
+      .get(account.id, asset.id),
+    total = db
+      .prepare(
+        "SELECT COALESCE(SUM(byte_length),0) total FROM cloud_assets WHERE user_id=?",
+      )
+      .get(account.id).total;
+  if (
+    Number(total) + asset.byteLength - Number(stored?.byte_length || 0) >
+    cloudStorageLimit
+  )
+    throw Object.assign(new Error("云端图片空间已达到 200 MiB 上限。"), {
+      status: 413,
+    });
+  const time = now();
+  db.prepare(
+    "INSERT INTO cloud_assets(id,user_id,mime,filename,sha256,byte_length,width,height,alt,caption,data,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET mime=excluded.mime,filename=excluded.filename,sha256=excluded.sha256,byte_length=excluded.byte_length,width=excluded.width,height=excluded.height,alt=excluded.alt,caption=excluded.caption,data=excluded.data,updated_at=excluded.updated_at",
+  ).run(
+    asset.id,
+    account.id,
+    asset.mime,
+    asset.filename,
+    asset.sha256,
+    asset.byteLength,
+    asset.width,
+    asset.height,
+    asset.alt,
+    asset.caption,
+    sealBytes(asset.buffer),
+    time,
+    time,
+  );
+  const { buffer: _buffer, ...metadata } = asset;
+  return metadata;
+}
+function saveCloudBundle(account, input) {
+  const mutationKey = String(input.mutationId || "").slice(0, 200);
+  if (mutationKey) {
+    const previous = db
+      .prepare(
+        "SELECT response_json FROM cloud_mutations WHERE user_id=? AND mutation_key=?",
+      )
+      .get(account.id, mutationKey);
+    if (previous) return openArticle(previous.response_json);
+  }
+  const uploaded = (Array.isArray(input.assets) ? input.assets : []).map(
+    normalizeCloudAsset,
+  );
+  const uploadedById = new Map(uploaded.map((asset) => [asset.id, asset]));
+  const article = normalizeCloudArticle(input.article || input);
+  article.assets = article.assets.map((asset) => {
+    const replacement = uploadedById.get(asset.id);
+    if (!replacement) return asset;
+    const { buffer: _buffer, ...metadata } = replacement;
+    return metadata;
+  });
+  for (const asset of uploaded) {
+    if (!article.assets.some((item) => item.id === asset.id)) {
+      const { buffer: _buffer, ...metadata } = asset;
+      article.assets.push(metadata);
+    }
+  }
+  if (article.coverId && !article.assets.some((a) => a.id === article.coverId))
+    throw Object.assign(new Error("封面资源未包含在文章中。"), {
+      status: 400,
+    });
+  const existing = db
+      .prepare(
+        "SELECT cloud_revision,created_at FROM cloud_articles WHERE user_id=? AND id=?",
+      )
+      .get(account.id, article.id),
+    expected = input.baseRevision;
+  if (
+    existing &&
+    expected !== undefined &&
+    Number(expected) !== existing.cloud_revision
+  )
+    throw Object.assign(new Error("云端文章已被其他设备更新。"), {
+      status: 409,
+      cloudRevision: existing.cloud_revision,
+    });
+  if (!existing && expected !== undefined && Number(expected) !== 0)
+    throw Object.assign(new Error("云端文章版本不存在。"), { status: 409 });
+  const storedBytes = db
+    .prepare(
+      "SELECT COALESCE(SUM(byte_length),0) total FROM cloud_assets WHERE user_id=?",
+    )
+    .get(account.id).total;
+  let delta = 0;
+  for (const asset of uploaded) {
+    const before = db
+      .prepare("SELECT byte_length FROM cloud_assets WHERE user_id=? AND id=?")
+      .get(account.id, asset.id);
+    delta += asset.byteLength - Number(before?.byte_length || 0);
+  }
+  if (Number(storedBytes) + delta > cloudStorageLimit)
+    throw Object.assign(new Error("云端图片空间已达到 200 MiB 上限。"), {
+      status: 413,
+    });
+  const time = now(),
+    cloudRevision = Number(existing?.cloud_revision || 0) + 1,
+    response = { article, cloudRevision, serverUpdatedAt: time };
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const asset of uploaded)
+      db.prepare(
+        "INSERT INTO cloud_assets(id,user_id,mime,filename,sha256,byte_length,width,height,alt,caption,data,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET mime=excluded.mime,filename=excluded.filename,sha256=excluded.sha256,byte_length=excluded.byte_length,width=excluded.width,height=excluded.height,alt=excluded.alt,caption=excluded.caption,data=excluded.data,updated_at=excluded.updated_at",
+      ).run(
+        asset.id,
+        account.id,
+        asset.mime,
+        asset.filename,
+        asset.sha256,
+        asset.byteLength,
+        asset.width,
+        asset.height,
+        asset.alt,
+        asset.caption,
+        sealBytes(asset.buffer),
+        time,
+        time,
+      );
+    for (const asset of article.assets)
+      if (
+        !db
+          .prepare("SELECT 1 FROM cloud_assets WHERE user_id=? AND id=?")
+          .get(account.id, asset.id)
+      )
+        throw Object.assign(new Error(`云端图片资源缺失：${asset.filename}`), {
+          status: 400,
+        });
+    db.prepare(
+      "INSERT INTO cloud_articles(id,user_id,cloud_revision,article_json,created_at,updated_at,deleted_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET cloud_revision=excluded.cloud_revision,article_json=excluded.article_json,updated_at=excluded.updated_at,deleted_at=excluded.deleted_at",
+    ).run(
+      article.id,
+      account.id,
+      cloudRevision,
+      seal(JSON.stringify(article)),
+      Number(existing?.created_at || time),
+      time,
+      article.deletedAt ? Date.parse(article.deletedAt) || time : null,
+    );
+    if (mutationKey)
+      db.prepare(
+        "INSERT INTO cloud_mutations(user_id,mutation_key,response_json,created_at) VALUES(?,?,?,?)",
+      ).run(account.id, mutationKey, seal(JSON.stringify(response)), time);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return response;
+}
 function workflowFor(row, id, allowed = ["active"]) {
   const workflow = id
     ? db
@@ -199,6 +557,20 @@ function open(value) {
     "utf8",
   );
 }
+function sealBytes(value) {
+  return Buffer.from(seal(Buffer.from(value).toString("base64url")), "utf8");
+}
+function openBytes(value) {
+  return Buffer.from(open(Buffer.from(value).toString("utf8")), "base64url");
+}
+function openArticle(value) {
+  const text = String(value || "");
+  try {
+    return JSON.parse(open(text) || text);
+  } catch {
+    return JSON.parse(text);
+  }
+}
 function cookies(req) {
   return Object.fromEntries(
     (req.headers.cookie || "")
@@ -234,6 +606,16 @@ function send(res, status, body, extra = {}) {
     ...extra,
   });
   res.end(JSON.stringify(body));
+}
+function sendBinary(res, status, data, mime, filename) {
+  res.writeHead(status, {
+    "Content-Type": mime,
+    "Content-Length": data.length,
+    "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+  res.end(data);
 }
 function same(a = "", b = "") {
   const aa = Buffer.from(a),
@@ -330,6 +712,78 @@ const server = createServer(async (req, res) => {
       throw Object.assign(new Error("X 发布桥尚未配置服务端加密密钥。"), {
         status: 503,
       });
+    if (path.startsWith("/agent/v1/")) {
+      rateLimit(req, "agent", 180, 60 * 1000);
+      if (req.method === "GET" && path === "/agent/v1/articles") {
+        const account = requireApiAccount(req, "articles:read");
+        return send(res, 200, {
+          articles: cloudArticleRows(account.id).map((item) => ({
+            id: item.article.id,
+            title: item.article.title,
+            updatedAt: item.article.updatedAt,
+            archived: !!item.article.archived,
+            deletedAt: item.article.deletedAt,
+            cloudRevision: item.cloudRevision,
+          })),
+        });
+      }
+      const agentArticle = /^\/agent\/v1\/articles\/([^/]+)$/.exec(path);
+      if (req.method === "GET" && agentArticle) {
+        const account = requireApiAccount(req, "articles:read"),
+          row = db
+            .prepare(
+              "SELECT cloud_revision,article_json,updated_at FROM cloud_articles WHERE user_id=? AND id=?",
+            )
+            .get(account.id, decodeURIComponent(agentArticle[1]));
+        if (!row)
+          throw Object.assign(new Error("云端文章不存在。"), { status: 404 });
+        const article = openArticle(row.article_json);
+        return send(res, 200, {
+          article,
+          cloudRevision: row.cloud_revision,
+          serverUpdatedAt: row.updated_at,
+          assetUrls: Object.fromEntries(
+            article.assets.map((asset) => [
+              asset.id,
+              `${publicBase}/api/x/agent/v1/assets/${encodeURIComponent(asset.id)}`,
+            ]),
+          ),
+        });
+      }
+      const agentAsset = /^\/agent\/v1\/assets\/([^/]+)$/.exec(path);
+      if (req.method === "GET" && agentAsset) {
+        const account = requireApiAccount(req, "assets:read"),
+          asset = db
+            .prepare(
+              "SELECT mime,filename,data FROM cloud_assets WHERE user_id=? AND id=?",
+            )
+            .get(account.id, decodeURIComponent(agentAsset[1]));
+        if (!asset)
+          throw Object.assign(new Error("云端图片不存在。"), { status: 404 });
+        return sendBinary(
+          res,
+          200,
+          openBytes(asset.data),
+          asset.mime,
+          asset.filename,
+        );
+      }
+      if (req.method === "POST" && path === "/agent/v1/articles/upsert") {
+        const account = requireApiAccount(req, "articles:write");
+        if (!req.headers["content-type"]?.includes("application/json"))
+          throw Object.assign(new Error("Agent 写入必须使用 JSON。"), {
+            status: 400,
+          });
+        const input = await body(req, 48 * 1024 * 1024);
+        input.mutationId =
+          String(req.headers["idempotency-key"] || input.mutationId || "") ||
+          undefined;
+        if (Array.isArray(input.assets) && input.assets.length)
+          requireApiAccount(req, "assets:write");
+        return send(res, 200, saveCloudBundle(account, input));
+      }
+      return send(res, 404, { error: "Agent 接口不存在。" });
+    }
     const row = session(req, res);
     if (req.method === "GET" && path === "/status") {
       let user = row.user_json ? JSON.parse(row.user_json) : null;
@@ -432,7 +886,10 @@ const server = createServer(async (req, res) => {
     }
     if (req.method !== "POST") return send(res, 404, { error: "接口不存在。" });
     requirePost(req, row);
-    const input = await body(req);
+    const input = await body(
+      req,
+      path === "/cloud/assets/upload" ? 16 * 1024 * 1024 : undefined,
+    );
     if (path === "/auth/register") {
       rateLimit(req, "register", 8, 15 * 60 * 1000);
       if (registrationMode !== "invite")
@@ -544,6 +1001,111 @@ const server = createServer(async (req, res) => {
         "UPDATE users SET password_hash=?,updated_at=? WHERE id=?",
       ).run(await hashPassword(nextPassword), now(), account.id);
       return send(res, 200, { ok: true });
+    }
+    if (path === "/account/tokens/list") {
+      const account = requireAccount(row);
+      const tokens = db
+        .prepare(
+          "SELECT id,name,scopes,created_at,last_used_at,revoked_at FROM api_tokens WHERE user_id=? ORDER BY created_at DESC LIMIT 100",
+        )
+        .all(account.id)
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          scopes: String(item.scopes).split(" "),
+          createdAt: item.created_at,
+          lastUsedAt: item.last_used_at,
+          revoked: !!item.revoked_at,
+        }));
+      return send(res, 200, { tokens });
+    }
+    if (path === "/account/tokens/create") {
+      const account = requireAccount(row),
+        name =
+          String(input.name || "Agent")
+            .trim()
+            .slice(0, 80) || "Agent",
+        allowed = new Set([
+          "articles:read",
+          "articles:write",
+          "assets:read",
+          "assets:write",
+        ]),
+        requested = Array.isArray(input.scopes)
+          ? input.scopes.filter((item) => allowed.has(item))
+          : [...allowed],
+        scopes = [...new Set(requested)];
+      if (!scopes.length)
+        throw Object.assign(new Error("API Token 至少需要一个权限。"), {
+          status: 400,
+        });
+      const raw = `acks_pat_${token(32)}`,
+        id = token(18);
+      db.prepare(
+        "INSERT INTO api_tokens(id,user_id,name,token_hash,scopes,created_at) VALUES(?,?,?,?,?,?)",
+      ).run(id, account.id, name, apiTokenHash(raw), scopes.join(" "), now());
+      return send(res, 201, { id, name, scopes, token: raw });
+    }
+    if (path === "/account/tokens/revoke") {
+      const account = requireAccount(row),
+        id = String(input.tokenId || "");
+      const result = db
+        .prepare(
+          "UPDATE api_tokens SET revoked_at=? WHERE id=? AND user_id=? AND revoked_at IS NULL",
+        )
+        .run(now(), id, account.id);
+      if (!result.changes)
+        throw Object.assign(new Error("API Token 不存在或已撤销。"), {
+          status: 404,
+        });
+      return send(res, 200, { ok: true });
+    }
+    if (path === "/cloud/articles/list") {
+      const account = requireAccount(row),
+        articles = cloudArticleRows(account.id),
+        storage = db
+          .prepare(
+            "SELECT COALESCE(SUM(byte_length),0) used FROM cloud_assets WHERE user_id=?",
+          )
+          .get(account.id);
+      return send(res, 200, {
+        articles,
+        storageUsed: Number(storage.used),
+        storageLimit: cloudStorageLimit,
+      });
+    }
+    if (path === "/cloud/articles/upsert") {
+      const account = requireAccount(row);
+      return send(res, 200, saveCloudBundle(account, input));
+    }
+    if (path === "/cloud/assets/upload") {
+      const account = requireAccount(row);
+      return send(res, 200, { asset: saveCloudAsset(account, input.asset) });
+    }
+    if (path === "/cloud/assets/get") {
+      const account = requireAccount(row),
+        assetId = String(input.assetId || ""),
+        asset = db
+          .prepare(
+            "SELECT id,mime,filename,sha256,byte_length,width,height,alt,caption,data FROM cloud_assets WHERE user_id=? AND id=?",
+          )
+          .get(account.id, assetId);
+      if (!asset)
+        throw Object.assign(new Error("云端图片不存在。"), { status: 404 });
+      return send(res, 200, {
+        asset: {
+          id: asset.id,
+          mime: asset.mime,
+          filename: asset.filename,
+          sha256: asset.sha256,
+          byteLength: asset.byte_length,
+          width: asset.width,
+          height: asset.height,
+          alt: asset.alt,
+          caption: asset.caption,
+          data: openBytes(asset.data).toString("base64"),
+        },
+      });
     }
     if (path === "/admin/invites/create") {
       const admin = requireAdmin(row),
@@ -851,6 +1413,9 @@ const server = createServer(async (req, res) => {
     return send(res, status, {
       error:
         status >= 500 ? "X 发布桥暂时不可用。" : error?.message || "请求失败。",
+      ...(Number.isInteger(error?.cloudRevision)
+        ? { cloudRevision: error.cloudRevision }
+        : {}),
     });
   }
 });

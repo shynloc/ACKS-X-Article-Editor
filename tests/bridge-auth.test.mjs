@@ -235,4 +235,161 @@ describe("体验账号与直发额度", () => {
       afterRevoke.body.audits.some((item) => item.action === "user.update"),
     ).toBe(true);
   });
+
+  it("登录用户可以云同步，Agent Token 可以写入完整文章与图片", async () => {
+    const admin = await browserSession();
+    expect(
+      (
+        await admin.post("/auth/login", {
+          username: "站点管理员",
+          password: "admin-secure-password-123",
+        })
+      ).response.status,
+    ).toBe(200);
+    const createdToken = await admin.post("/account/tokens/create", {
+      name: "测试 Agent",
+    });
+    expect(createdToken.response.status).toBe(201);
+    expect(createdToken.body.token).toMatch(/^acks_pat_/);
+    const apiToken = createdToken.body.token;
+    const imageData = Buffer.from("png-test").toString("base64");
+    const article = {
+      schemaVersion: "1.0.0",
+      id: "agent-article",
+      revision: 1,
+      title: "Agent 写入文章",
+      body: "## 正文\n\n![插图](asset:asset-agent-test)",
+      assets: [
+        {
+          id: "asset-agent-test",
+          kind: "image",
+          mime: "image/png",
+          filename: "agent.png",
+          byteLength: 8,
+          sha256: "",
+          width: 1,
+          height: 1,
+          alt: "Agent 插图",
+          caption: "",
+        },
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const agentRequest = async (path, init = {}) => {
+      const response = await fetch(`${base}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+          ...(init.headers || {}),
+        },
+      });
+      return { response, body: await response.json() };
+    };
+    const firstWrite = await agentRequest("/agent/v1/articles/upsert", {
+      method: "POST",
+      headers: { "Idempotency-Key": "agent-write-1" },
+      body: JSON.stringify({
+        article,
+        baseRevision: 0,
+        assets: [{ ...article.assets[0], data: imageData }],
+      }),
+    });
+    expect(firstWrite.response.status).toBe(200);
+    expect(firstWrite.body.cloudRevision).toBe(1);
+    const encryptedDb = new DatabaseSync(databasePath, { readOnly: true });
+    const encryptedArticle = encryptedDb
+      .prepare(
+        "SELECT article_json FROM cloud_articles WHERE id='agent-article'",
+      )
+      .get();
+    const encryptedAsset = encryptedDb
+      .prepare("SELECT data FROM cloud_assets WHERE id='asset-agent-test'")
+      .get();
+    encryptedDb.close();
+    expect(encryptedArticle.article_json).not.toContain("Agent 写入文章");
+    expect(Buffer.from(encryptedAsset.data).toString()).not.toBe("png-test");
+    const repeated = await agentRequest("/agent/v1/articles/upsert", {
+      method: "POST",
+      headers: { "Idempotency-Key": "agent-write-1" },
+      body: JSON.stringify({
+        article,
+        baseRevision: 0,
+        assets: [{ ...article.assets[0], data: imageData }],
+      }),
+    });
+    expect(repeated.body.cloudRevision).toBe(1);
+    const agentList = await agentRequest("/agent/v1/articles");
+    expect(agentList.body.articles.some((item) => item.id === article.id)).toBe(
+      true,
+    );
+    const agentDetail = await agentRequest(`/agent/v1/articles/${article.id}`);
+    expect(agentDetail.body.article.title).toBe(article.title);
+    const assetResponse = await fetch(
+      `${base}/agent/v1/assets/asset-agent-test`,
+      { headers: { Authorization: `Bearer ${apiToken}` } },
+    );
+    expect(Buffer.from(await assetResponse.arrayBuffer()).toString()).toBe(
+      "png-test",
+    );
+
+    const cloudList = await admin.post("/cloud/articles/list");
+    expect(
+      cloudList.body.articles.some(
+        (item) => item.article.id === article.id && item.cloudRevision === 1,
+      ),
+    ).toBe(true);
+    const cloudAsset = await admin.post("/cloud/assets/get", {
+      assetId: "asset-agent-test",
+    });
+    expect(cloudAsset.body.asset.data).toBe(imageData);
+    const browserUpdate = await admin.post("/cloud/articles/upsert", {
+      article: { ...firstWrite.body.article, title: "浏览器更新文章" },
+      baseRevision: 1,
+      mutationId: "browser-update-1",
+    });
+    expect(browserUpdate.body.cloudRevision).toBe(2);
+    const conflict = await admin.post("/cloud/articles/upsert", {
+      article,
+      baseRevision: 0,
+      mutationId: "browser-conflict-1",
+    });
+    expect(conflict.response.status).toBe(409);
+    expect(conflict.body.cloudRevision).toBe(2);
+
+    const otherInvite = await admin.post("/admin/invites/create", {
+      role: "trial",
+      directLimit: 1,
+    });
+    const otherUser = await browserSession();
+    expect(
+      (
+        await otherUser.post("/auth/register", {
+          username: "另一个云端用户",
+          password: "another-cloud-password-123",
+          inviteCode: otherInvite.body.code,
+        })
+      ).response.status,
+    ).toBe(201);
+    const isolatedLibrary = await otherUser.post("/cloud/articles/list");
+    expect(isolatedLibrary.body.articles).toHaveLength(0);
+
+    const tokenList = await admin.post("/account/tokens/list");
+    expect(
+      tokenList.body.tokens.some(
+        (item) => item.id === createdToken.body.id && item.lastUsedAt,
+      ),
+    ).toBe(true);
+    expect(
+      (
+        await admin.post("/account/tokens/revoke", {
+          tokenId: createdToken.body.id,
+        })
+      ).response.status,
+    ).toBe(200);
+    expect((await agentRequest("/agent/v1/articles")).response.status).toBe(
+      401,
+    );
+  });
 });
