@@ -22,7 +22,7 @@ import { imageHeader } from "../core/imageHeader";
 
 const MAX_EXPANDED = 250 * 1024 * 1024;
 export async function renderKey(n: RenderNode) {
-  return `${CONVERTER_VERSION}:light:${n.renderKind}:${n.lang ?? ""}:${await sha256(n.source)}`;
+  return `${CONVERTER_VERSION}:ink-v2:${n.renderKind}:${n.lang ?? ""}:${await sha256(n.source)}`;
 }
 export async function getRenderParts(
   n: RenderNode,

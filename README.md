@@ -23,8 +23,13 @@
 
 ACKS X Article Editor 面向习惯 Markdown 工作流的 X Article 写作者。它把**本地写作、X 格式转换和远端发布**拆成清楚的阶段：文稿与原图默认保存在浏览器；转换器提前显示图片化、降级和缺失资源；发布时可以手动复制，也可以用自己的 X Developer Client ID 创建草稿并确认发布。
 
-> **当前版本：0.4.0 · Public Preview**<br>
+> **当前版本：0.5.0 · Public Preview**<br>
 > 2026-09-01 已真实完成 OAuth、正文图片、表格图片、Article 草稿和正式发布验证。仓库公开，自部署默认不限直发次数；在线体验站使用邀请码账号控制自动发布额度。
+
+
+**0.5 新增：** 侧栏 → **文章管理** 可切换列表/卡片、按标题和正文搜索、按时间或标题排序，并管理草稿、已发布、归档和回收站。标记已发布不调用 X API。代码与表格导出改用黑白底色配蓝橙强调。独立运行，无需 DSH。旧文稿默认归入草稿；已归档或删除的文章保留原分类。登录并开启原有私有云同步后，分类随文章同步；纯静态部署仍可离线使用。
+
+从 0.4 升级：在原 Compose 项目目录保留原有 `.env`、卷与域名，运行 `git pull --ff-only`、`docker compose up -d --build`（同时更新 editor 和 bridge），刷新页面。重要文稿建议先导出备份；不要删除数据卷或清除浏览器站点数据。
 
 ## 为什么做这个项目
 
@@ -196,7 +201,9 @@ DEFAULT_LANGUAGE=
 
 `DEFAULT_LANGUAGE` 可设为 `zh-CN` 或 `en`；留空则按浏览器语言选择。用户仍可在界面顶部随时切换。
 
-> 自部署必须保持 `DEPLOYMENT_MODE=selfhost`。该模式不启用官方体验站的邀请码和一次直发限制，API 用量与费用归部署者自己的 X Developer App。
+> 保持 `DEPLOYMENT_MODE=selfhost` 即可使用部署者自己的 X Developer App，不受体验站的直发次数限制。管理文章不需要绑定 X。
+
+**需要跨设备续写？** 默认仅在当前浏览器保存。要启用自己的私有文章库，先在已有的 `.env` 设置 `SELFHOST_PRIVATE_LIBRARY=true`，保留稳定的 `X_SESSION_SECRET` 和数据卷；运行 `docker compose up -d --build`。等 bridge 健康后在自己的终端运行 `docker compose exec bridge node server/admin-cli.mjs create-admin-invite`，用生成的一次性邀请码在编辑器注册首个管理员。其他设备使用同一账号登录，不需要再次注册。首次迁移可以选择是否上传已有本地文稿；没有服务器后端的纯静态部署仍是设备本地保存。请勿公开邀请码或将其提交到 Git。
 
 构建并启动：
 

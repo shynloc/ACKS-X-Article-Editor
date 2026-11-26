@@ -36,6 +36,13 @@ import { MarkdownEditor, type EditorHandle } from "./components/MarkdownEditor";
 import { MarkdownToolbar } from "./components/MarkdownToolbar";
 import { XPublishDialog } from "./components/XPublishDialog";
 import { AccountDialog } from "./components/AccountDialog";
+import { ArticleShelf } from "./components/ArticleShelf";
+import {
+  fileArticle,
+  shelfGroup,
+  type ShelfAction,
+  type ShelfGroup,
+} from "./core/articleShelf";
 import { trapDialogTab } from "./components/dialogFocus";
 import { Preview, AssetImage } from "./components/Preview";
 import {
@@ -93,6 +100,7 @@ import {
 } from "./services/cloudSync";
 
 type Panel =
+  | "shelf"
   | "validation"
   | "export"
   | "history"
@@ -210,7 +218,8 @@ export function App() {
     [conflict, setConflict] = useState(false),
     [panel, setPanel] = useState<Panel>(null),
     [search, setSearch] = useState(""),
-    [filter, setFilter] = useState<"active" | "archived" | "deleted">("active"),
+    [filter, setFilter] = useState<ShelfGroup>("draft"),
+    [shelfInitial, setShelfInitial] = useState<ShelfGroup | "all">("all"),
     [librarySort, setLibrarySort] = useState<LibrarySort>(storedLibrarySort),
     [pinnedIds, setPinnedIds] = useState<Set<string>>(storedPins),
     [busy, setBusy] = useState(false),
@@ -660,6 +669,37 @@ export function App() {
       setPanel("export");
     }
   }
+  async function openArticleManager(initial: ShelfGroup | "all") {
+    try {
+      await flush();
+      await refresh();
+      setShelfInitial(initial);
+      setPanel("shelf");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+  async function manageArticle(row: Article, action: ShelfAction) {
+    await flush();
+    const current = await db.articles.get(row.id);
+    if (!current || current.revision !== row.revision) {
+      await refresh();
+      throw new ConflictError();
+    }
+    const saved = await saveArticle(
+      fileArticle(current, action),
+      current.revision,
+      t("文章管理"),
+    );
+    if (draft.current?.id === saved.id) {
+      const alternatives = saved.deletedAt
+        ? (await listArticles()).filter((a) => !a.deletedAt)
+        : [];
+      load(alternatives[0] ?? saved);
+    }
+    cloudPush.current(saved);
+    await refresh();
+  }
   async function create() {
     try {
       await flush();
@@ -757,6 +797,7 @@ export function App() {
         id: crypto.randomUUID(),
         revision: 0,
         title: `${current.title || "未命名文章"}（副本）`,
+        shelfStatus: "draft",
         lastExportAt: undefined,
         lastExportRevision: undefined,
         deletedAt: undefined,
@@ -949,13 +990,8 @@ export function App() {
   async function setLifecycle(action: "archive" | "trash" | "restore") {
     try {
       await flush();
-      edit(
-        action === "archive"
-          ? { archived: true }
-          : action === "trash"
-            ? { deletedAt: new Date().toISOString() }
-            : { archived: false, deletedAt: undefined },
-      );
+      if (!draft.current) return;
+      edit(fileArticle(draft.current, action));
       await flush();
       setPanel(null);
       setNotice(
@@ -999,13 +1035,7 @@ export function App() {
     renderCount =
       conversion?.nodes.filter((n) => n.kind === "render").length ?? 0;
   const visible = library
-    .filter((a) =>
-      filter === "deleted"
-        ? !!a.deletedAt
-        : filter === "archived"
-          ? a.archived && !a.deletedAt
-          : !a.archived && !a.deletedAt,
-    )
+    .filter((a) => shelfGroup(a) === filter)
     .filter((a) =>
       (a.title + a.body).toLowerCase().includes(search.toLowerCase()),
     )
@@ -1165,9 +1195,16 @@ export function App() {
             {t("导入")}
           </button>
         </div>
+        <button
+          className="shelf-index"
+          onClick={() => openArticleManager("all")}
+        >
+          <FileText size={18} />
+          {t("文章管理")}
+        </button>
         <nav className="document-list" aria-label="文稿列表">
           {visible.length ? (
-            visible.map((a) => (
+            visible.slice(0, 8).map((a) => (
               <div
                 key={a.id}
                 className={`document-row ${article.id === a.id ? "active" : ""}`}
@@ -1208,13 +1245,27 @@ export function App() {
             </p>
           )}
         </nav>
+        {visible.length > 8 && (
+          <button
+            className="shelf-index"
+            onClick={() => openArticleManager(filter)}
+          >
+            {t("查看全部文稿")} · {visible.length}
+          </button>
+        )}
         <div className="sidebar-bottom">
           <div className="library-filters">
             <button
-              aria-pressed={filter === "active"}
-              onClick={() => setFilter("active")}
+              aria-pressed={filter === "draft"}
+              onClick={() => setFilter("draft")}
             >
-              {t("全部")}
+              {t("草稿箱")}
+            </button>
+            <button
+              aria-pressed={filter === "published"}
+              onClick={() => setFilter("published")}
+            >
+              {t("已发布")}
             </button>
             <button
               aria-pressed={filter === "archived"}
@@ -1865,6 +1916,36 @@ export function App() {
             </p>
           </div>
         </Modal>
+      )}
+      {panel === "shelf" && (
+        <ArticleShelf
+          articles={library}
+          initial={shelfInitial}
+          initialQuery={search}
+          onClose={() => setPanel(null)}
+          onFile={manageArticle}
+          onOpen={async (a) => {
+            await flush();
+            const v = await db.articles.get(a.id);
+            if (!v || v.deletedAt) {
+              await refresh();
+              throw Error(t("文稿已改变，请重新选择"));
+            }
+            load(v);
+            setSidebar(false);
+            setPanel(null);
+          }}
+          onNew={async () => {
+            await flush();
+            const a = await insertArticle(newArticle());
+            await refresh();
+            load(a);
+            cloudPush.current(a);
+            setFilter("draft");
+            setSidebar(false);
+            setPanel(null);
+          }}
+        />
       )}
       {panel === "history" && (
         <Modal title={t("本地历史版本")} close={() => setPanel(null)}>

@@ -15,26 +15,26 @@ let directory;
 let databasePath;
 let xServer;
 
-async function waitForHealth() {
+async function waitForHealth(url = base) {
   for (let attempt = 0; attempt < 50; attempt++) {
     try {
-      if ((await fetch(`${base}/health`)).ok) return;
+      if ((await fetch(`${url}/health`)).ok) return;
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("bridge did not become healthy");
 }
 
-async function browserSession() {
-  const response = await fetch(`${base}/status`);
+async function browserSession(url = base) {
+  const response = await fetch(`${url}/status`);
   const status = await response.json();
   const cookie = response.headers.get("set-cookie").split(";", 1)[0];
   const post = async (path, input = {}, extraHeaders = {}) => {
-    const result = await fetch(`${base}${path}`, {
+    const result = await fetch(`${url}${path}`, {
       method: "POST",
       headers: {
         Cookie: cookie,
-        Origin: `http://127.0.0.1:${port}`,
+        Origin: new URL(url).origin,
         "Content-Type": "application/json",
         "X-CSRF-Token": status.csrf,
         ...extraHeaders,
@@ -44,7 +44,7 @@ async function browserSession() {
     return { response: result, body: await result.json() };
   };
   const getStatus = async () => {
-    const result = await fetch(`${base}/status`, {
+    const result = await fetch(`${url}/status`, {
       headers: { Cookie: cookie },
     });
     return result.json();
@@ -103,12 +103,129 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  processHandle?.kill("SIGTERM");
+  if (
+    processHandle &&
+    processHandle.exitCode === null &&
+    processHandle.signalCode === null
+  ) {
+    const stopped = new Promise((resolve) =>
+      processHandle.once("exit", resolve),
+    );
+    processHandle.kill("SIGTERM");
+    await stopped;
+  }
   xServer?.close();
-  await rm(directory, { recursive: true, force: true });
+  await rm(directory, {
+    recursive: true,
+    force: true,
+    maxRetries: 4,
+    retryDelay: 100,
+  });
 });
 
 describe("体验账号与直发额度", () => {
+  it.each([false, true])(
+    "自部署私有文章库开关 %s：独立会话和发布额度分离",
+    async (enabled) => {
+      const probe = createServer();
+      await new Promise((resolve) => probe.listen(0, "127.0.0.1", resolve));
+      const candidatePort = probe.address().port;
+      await new Promise((resolve) => probe.close(resolve));
+      const origin = `http://127.0.0.1:${candidatePort}`,
+        url = origin + "/api/x";
+      const dbPath = join(directory, `selfhost-${enabled}.sqlite`);
+      const child = spawn(process.execPath, ["server/x-bridge.mjs"], {
+        env: {
+          ...process.env,
+          X_BRIDGE_PORT: String(candidatePort),
+          PUBLIC_BASE_URL: origin,
+          X_BRIDGE_DB: dbPath,
+          X_SESSION_SECRET: "isolated-fixture-only",
+          DEPLOYMENT_MODE: "selfhost",
+          SELFHOST_PRIVATE_LIBRARY: String(enabled),
+        },
+        stdio: "ignore",
+      });
+      try {
+        await waitForHealth(url);
+        const a = await browserSession(url),
+          b = await browserSession(url);
+        expect(a.status.registrationMode).toBe(enabled ? "invite" : "disabled");
+        expect((await a.post("/workflow/start")).response.status).toBe(201);
+        expect((await a.post("/cloud/articles/list")).response.status).toBe(
+          enabled ? 401 : 403,
+        );
+        const credentials = {
+          username: "writerOne",
+          password: "test-fixture-password-0123",
+        };
+        if (!enabled) {
+          expect(
+            (await b.post("/auth/login", credentials)).response.status,
+          ).toBe(403);
+          expect(
+            (await b.post("/auth/register", credentials)).response.status,
+          ).toBe(403);
+          return;
+        }
+        const db = new DatabaseSync(dbPath);
+        for (const name of ["writerOne", "writerTwo"])
+          db.prepare(
+            "INSERT INTO invites(code_hash,role,direct_limit,created_at) VALUES(?,?,?,?)",
+          ).run(inviteHash("invite-" + name), "trial", 0, Date.now());
+        db.close();
+        expect(
+          (
+            await a.post("/auth/register", {
+              ...credentials,
+              inviteCode: "invite-writerOne",
+            })
+          ).response.status,
+        ).toBe(201);
+        expect(
+          (
+            await a.post("/cloud/articles/upsert", {
+              article: {
+                id: "private-note",
+                title: "My article",
+                body: "Hello",
+                shelfStatus: "published",
+              },
+              baseRevision: 0,
+            })
+          ).response.status,
+        ).toBe(200);
+        expect((await b.post("/auth/login", credentials)).response.status).toBe(
+          200,
+        );
+        expect(
+          (await b.post("/cloud/articles/list")).body.articles.map(
+            (v) => v.article.shelfStatus,
+          ),
+        ).toEqual(["published"]);
+        expect((await b.post("/workflow/start")).response.status).toBe(201);
+        const other = await browserSession(url);
+        expect(
+          (
+            await other.post("/auth/register", {
+              ...credentials,
+              username: "writerTwo",
+              inviteCode: "invite-writerTwo",
+            })
+          ).response.status,
+        ).toBe(201);
+        expect(
+          (await other.post("/cloud/articles/list")).body.articles,
+        ).toEqual([]);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const done = new Promise((resolve) => child.once("exit", resolve));
+          child.kill("SIGTERM");
+          await done;
+        }
+      }
+    },
+  );
   it("在 hosted 模式下先登录，再使用一次性邀请码与工作流", async () => {
     const session = await browserSession();
     expect(session.status.deploymentMode).toBe("hosted");
@@ -345,11 +462,24 @@ describe("体验账号与直发额度", () => {
     });
     expect(cloudAsset.body.asset.data).toBe(imageData);
     const browserUpdate = await admin.post("/cloud/articles/upsert", {
-      article: { ...firstWrite.body.article, title: "浏览器更新文章" },
+      article: {
+        ...firstWrite.body.article,
+        title: "浏览器更新文章",
+        shelfStatus: "published",
+      },
       baseRevision: 1,
       mutationId: "browser-update-1",
     });
     expect(browserUpdate.body.cloudRevision).toBe(2);
+    const synced = (
+      await admin.post("/cloud/articles/list")
+    ).body.articles.find((x) => x.article.id === article.id);
+    expect(synced.article.shelfStatus).toBe("published");
+    expect(
+      (await agentRequest("/agent/v1/articles")).body.articles.find(
+        (x) => x.id === article.id,
+      ).shelfStatus,
+    ).toBe("published");
     const conflict = await admin.post("/cloud/articles/upsert", {
       article,
       baseRevision: 0,
@@ -357,6 +487,19 @@ describe("体验账号与直发额度", () => {
     });
     expect(conflict.response.status).toBe(409);
     expect(conflict.body.cloudRevision).toBe(2);
+    const legacyUpdate = await admin.post("/cloud/articles/upsert", {
+      article,
+      baseRevision: 2,
+    });
+    expect(legacyUpdate.body.article.shelfStatus).toBe("published");
+    expect(
+      (
+        await admin.post("/cloud/articles/upsert", {
+          article: { ...article, shelfStatus: "unknown" },
+          baseRevision: 3,
+        })
+      ).response.status,
+    ).toBe(400);
 
     const otherInvite = await admin.post("/admin/invites/create", {
       role: "trial",

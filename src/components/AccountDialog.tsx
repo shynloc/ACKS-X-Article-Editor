@@ -184,7 +184,8 @@ export function AccountDialog({
         </button>
       </div>
       <div className="dialog-content">
-        {status?.deploymentMode === "selfhost" ? (
+        {status?.deploymentMode === "selfhost" &&
+        status.registrationMode !== "invite" ? (
           <div className="success-note">
             <CheckCircle />
             {t("当前为自部署模式，直接发布不受体验账号额度限制。")}
@@ -200,12 +201,14 @@ export function AccountDialog({
               <div>
                 <strong>{account.username}</strong>
                 <small>
-                  {account.role === "admin"
-                    ? t("管理员 · 直接发布不限次数")
-                    : t("体验账号 · 已用 {used}/{limit} 次", {
-                        used: account.directUsed,
-                        limit: account.directLimit,
-                      })}
+                  {status?.deploymentMode === "selfhost"
+                    ? t("自部署 · 直接发布不限次数")
+                    : account.role === "admin"
+                      ? t("管理员 · 直接发布不限次数")
+                      : t("体验账号 · 已用 {used}/{limit} 次", {
+                          used: account.directUsed,
+                          limit: account.directLimit,
+                        })}
                 </small>
               </div>
               <button

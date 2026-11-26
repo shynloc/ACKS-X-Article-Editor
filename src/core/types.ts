@@ -31,6 +31,7 @@ export interface Article {
   lastExportRevision?: number;
   lastExportAt?: string;
   archived?: boolean;
+  shelfStatus?: "draft" | "published";
   deletedAt?: string;
 }
 export interface StoredAsset {

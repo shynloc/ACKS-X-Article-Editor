@@ -125,15 +125,41 @@ export function XPublishDialog({
   };
   const connect = () =>
     run("connect", async () => {
-      if (clientId.trim() !== status?.clientId) {
-        await configureX(clientId.trim());
-        await refresh();
-      }
-      const result = await authorizeX();
+      const popup = window.open("about:blank", "_blank");
+      if (popup) popup.opener = null;
       try {
-        sessionStorage.setItem("acks-x-oauth-pending", "1");
-      } catch {}
-      location.assign(result.url);
+        if (clientId.trim() !== status?.clientId) {
+          await configureX(clientId.trim());
+          await refresh();
+        }
+        const result = await authorizeX();
+        const target = new URL(result.url);
+        if (
+          target.origin !== "https://x.com" ||
+          target.pathname !== "/i/oauth2/authorize"
+        )
+          throw Error(t("X 授权地址无效"));
+        if (popup) {
+          popup.location.replace(target.href);
+          for (let i = 0; i < 180; i++) {
+            await new Promise((r) => setTimeout(r, 1500));
+            if (!dialog.current?.open) return;
+            const next = await getXStatus();
+            if (next.connected) {
+              await refresh();
+              return;
+            }
+            if (popup.closed) break;
+          }
+          throw Error(t("授权没有完成，可以重新连接 X。"));
+        }
+        try {
+          sessionStorage.setItem("acks-x-oauth-pending", "1");
+        } catch {}
+        location.assign(target.href);
+      } finally {
+        if (popup && !popup.closed) popup.close();
+      }
     });
   const createDraft = () =>
     run("draft", async () => {
@@ -370,7 +396,7 @@ export function XPublishDialog({
                 {t("断开")}
               </button>
             </div>
-            {status.account && (
+            {status.deploymentMode === "hosted" && status.account && (
               <p className="direct-allowance">
                 {status.account.role === "admin" ||
                 status.account.directRemaining < 0

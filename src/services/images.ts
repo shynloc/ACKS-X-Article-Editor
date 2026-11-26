@@ -155,7 +155,7 @@ async function highlight(code: string, lang: string) {
 }
 const cache = new Map<string, Promise<RenderedPart[]>>();
 export function renderNode(node: RenderNode): Promise<RenderedPart[]> {
-  const key = `canvas-v1:light:${node.renderKind}:${node.lang ?? ""}:${node.source}`;
+  const key = `canvas-v2:ink:${node.renderKind}:${node.lang ?? ""}:${node.source}`;
   let job = cache.get(key);
   if (job) return job;
   job = renderFresh(node).catch((e) => {
@@ -206,13 +206,15 @@ async function renderFresh(node: RenderNode): Promise<RenderedPart[]> {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, h);
       let y = padding;
+      ctx.fillStyle = "#002fa7";
+      ctx.fillRect(padding, y - 4, width - padding * 2, 4);
       for (const i of indices) {
-        ctx.fillStyle = i === 0 ? "#f2f4ef" : "#ffffff";
+        ctx.fillStyle = i === 0 ? "#151515" : "#ffffff";
         ctx.fillRect(padding, y, width - padding * 2, heights[i]);
         for (let j = 0; j < cols; j++) {
-          ctx.strokeStyle = "#d9ded5";
+          ctx.strokeStyle = "#cbcbcb";
           ctx.strokeRect(padding + j * colWidth, y, colWidth, heights[i]);
-          ctx.fillStyle = "#252b24";
+          ctx.fillStyle = i === 0 ? "#ffffff" : "#171717";
           ctx.font = i === 0 ? `600 ${FONT}` : FONT;
           for (const [line, t] of (laid[i]?.[j] ?? [""]).entries())
             ctx.fillText(t, padding + j * colWidth + 12, y + 12 + line * 26);
@@ -220,7 +222,7 @@ async function renderFresh(node: RenderNode): Promise<RenderedPart[]> {
         y += heights[i];
       }
       if (groups.length > 1) {
-        ctx.fillStyle = "#62695f";
+        ctx.fillStyle = "#454545";
         ctx.font = "12px sans-serif";
         ctx.fillText(`${page + 1} / ${groups.length}`, padding, h - 20);
       }
@@ -255,9 +257,13 @@ async function renderFresh(node: RenderNode): Promise<RenderedPart[]> {
       const slice = wrapped.slice(page * 36, (page + 1) * 36),
         height = 56 + Math.max(1, slice.length) * 26 + 24,
         { c, ctx } = canvas(width, height);
-      ctx.fillStyle = "#f7f8f5";
+      ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = "#657160";
+      ctx.fillStyle = "#151515";
+      ctx.fillRect(0, 0, width, 32);
+      ctx.fillStyle = "#ff5a19";
+      ctx.fillRect(0, 0, 5, 32);
+      ctx.fillStyle = "#ffffff";
       ctx.font = "12px sans-serif";
       ctx.fillText(
         `${node.lang ?? "text"}${pages > 1 ? ` · ${page + 1} / ${pages}` : ""}`,
@@ -267,7 +273,7 @@ async function renderFresh(node: RenderNode): Promise<RenderedPart[]> {
       ctx.font = "16px monospace";
       for (const [j, line] of slice.entries()) {
         const y = 50 + j * 26;
-        ctx.fillStyle = "#8b9487";
+        ctx.fillStyle = "#595959";
         ctx.font = "12px monospace";
         ctx.fillText(line.wrap ? "↳" : String(line.index + 1), padding, y + 2);
         ctx.font = "16px monospace";
@@ -275,12 +281,18 @@ async function renderFresh(node: RenderNode): Promise<RenderedPart[]> {
         if (!line.wrap && ts && line.text === lines[line.index]) {
           let x = 64;
           for (const token of ts) {
-            ctx.fillStyle = token.color ?? "#253322";
+            ctx.fillStyle = /^(#d73a49|#cf222e|#d15704)$/i.test(
+              token.color ?? "",
+            )
+              ? "#a13805"
+              : /^(#005cc5|#6f42c1|#032f62|#0550ae)$/i.test(token.color ?? "")
+                ? "#002fa7"
+                : "#171717";
             ctx.fillText(token.content, x, y);
             x += ctx.measureText(token.content).width;
           }
         } else {
-          ctx.fillStyle = "#253322";
+          ctx.fillStyle = "#171717";
           ctx.fillText(line.text, 64, y);
         }
       }

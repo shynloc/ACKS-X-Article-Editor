@@ -23,10 +23,14 @@ A local-first Markdown workstation for X Articles · structure-aware conversion 
 
 ACKS X Article Editor is built for writers who use Markdown but publish long-form work through X Articles. It separates **local writing, X-compatible conversion, and remote publishing** into explicit stages. Drafts and original images stay in the browser by default. The converter shows image rendering, style degradation, and missing assets before publishing. Writers can then use a manual copy workflow or connect their own X Developer Client ID to create and publish a draft.
 
-> **Current release: 0.3.0 · Public Preview**<br>
+> **Current release: 0.5.0 · Public Preview**<br>
 > On September 1, 2026, the complete OAuth, body image, table image, Article draft, and publish workflow was verified against a real X account. The repository is public. Self-hosted deployments have no trial publishing limit; the hosted demo uses invite accounts for controlled automatic-publishing access.
 
 ## Why this project exists
+
+**New in 0.5:** Open **Article manager** in the sidebar for list/card views, full-library title/body search, sorting, draft/published labels, archiving, and recoverable trash. Marking an article published never calls X. Code and table PNGs now use a black-and-white palette with blue/orange accents. Legacy articles need no migration. The existing private-cloud mode syncs labels; offline and static-only mode still work without DSH.
+
+Upgrading from 0.4: back up important drafts, keep the same origin, Compose project, volumes and `.env`, then run `git pull --ff-only` and `docker compose up -d --build` for both editor and bridge. Reload the page. Do not delete the volume or clear site data.
 
 The built-in X Article editor is a conventional rich-text editor. For writers with an established Markdown or HTML workflow, pasting a long article often means repairing headings, lists, tables, code blocks, and images by hand.
 
@@ -189,7 +193,9 @@ DEFAULT_LANGUAGE=
 
 Set `DEFAULT_LANGUAGE` to `zh-CN` or `en`, or leave it empty to follow the browser language. Users can always switch from the header.
 
-> Keep `DEPLOYMENT_MODE=selfhost` for self-hosting. Self-hosted instances do not enable the hosted demo's invite or one-workflow restriction. API usage and billing belong to the deployer's own X Developer App.
+> Keep `DEPLOYMENT_MODE=selfhost` to publish through your own X Developer App without the demo's publishing quota. Organizing articles does not require an X account.
+
+**Want to write across devices?** Browser-local storage remains the default. For a private article library, set `SELFHOST_PRIVATE_LIBRARY=true` in your existing `.env`, keep your persistent volume and stable `X_SESSION_SECRET`, and run `docker compose up -d --build`. Once the bridge is healthy, run `docker compose exec bridge node server/admin-cli.mjs create-admin-invite` privately and redeem the one-time invite in the editor to register the first administrator. Sign in with the same account on your other devices. On first sync you can choose whether to upload existing local drafts. Static-only deployments still work offline and do not sync across devices. Never publish the invite or commit it to Git.
 
 Build and start:
 

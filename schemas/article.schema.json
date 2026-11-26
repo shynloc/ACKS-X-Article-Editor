@@ -129,6 +129,7 @@
     "lastExportAt": {
       "type": "string"
     },
+    "shelfStatus": { "enum": ["draft", "published"] },
     "archived": {
       "type": "boolean"
     },

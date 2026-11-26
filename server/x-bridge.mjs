@@ -27,7 +27,14 @@ const origin = new URL(publicBase).origin;
 const databasePath = process.env.X_BRIDGE_DB || "/data/x-bridge.sqlite";
 const deploymentMode =
   process.env.DEPLOYMENT_MODE === "hosted" ? "hosted" : "selfhost";
-const registrationMode = deploymentMode === "hosted" ? "invite" : "disabled";
+const registrationMode =
+  deploymentMode === "hosted" || process.env.SELFHOST_PRIVATE_LIBRARY === "true"
+    ? "invite"
+    : "disabled";
+function requireLibraryEnabled() {
+  if (registrationMode !== "invite")
+    throw Object.assign(new Error("此实例未启用私有文章库。"), { status: 403 });
+}
 const keySource = process.env.X_SESSION_SECRET || "";
 const key = keySource ? createHash("sha256").update(keySource).digest() : null;
 mkdirSync(dirname(databasePath), { recursive: true });
@@ -132,7 +139,7 @@ function rateLimit(req, bucket, maximum, windowMs) {
     });
 }
 function accountFor(row) {
-  if (!row?.user_id) return null;
+  if (registrationMode !== "invite" || !row?.user_id) return null;
   return (
     db
       .prepare(
@@ -157,7 +164,10 @@ function publicAccount(account) {
   };
 }
 function requireAccount(row) {
-  if (deploymentMode !== "hosted") return null;
+  return deploymentMode === "hosted" ? requireLibraryAccount(row) : null;
+}
+function requireLibraryAccount(row) {
+  requireLibraryEnabled();
   const account = accountFor(row);
   if (!account)
     throw Object.assign(new Error("请先登录体验账号。"), { status: 401 });
@@ -166,7 +176,7 @@ function requireAccount(row) {
   return account;
 }
 function requireAdmin(row) {
-  const account = requireAccount(row);
+  const account = requireLibraryAccount(row);
   if (!account || account.role !== "admin")
     throw Object.assign(new Error("需要管理员权限。"), { status: 403 });
   return account;
@@ -192,6 +202,7 @@ const apiTokenHash = (value) =>
     .update(String(value || ""))
     .digest("hex");
 function requireApiAccount(req, scope) {
+  requireLibraryEnabled();
   const match = /^Bearer\s+(.+)$/i.exec(
     String(req.headers.authorization || ""),
   );
@@ -288,6 +299,11 @@ function normalizeCloudAsset(value) {
 function normalizeCloudArticle(value) {
   if (!value || typeof value !== "object")
     throw Object.assign(new Error("文章格式无效。"), { status: 400 });
+  if (
+    Object.hasOwn(value, "shelfStatus") &&
+    !["draft", "published"].includes(value.shelfStatus)
+  )
+    throw Object.assign(new Error("文章分类无效。"), { status: 400 });
   const id = String(value.id || token(18));
   if (!validCloudId(id))
     throw Object.assign(new Error("文章 ID 无效。"), { status: 400 });
@@ -343,6 +359,9 @@ function normalizeCloudArticle(value) {
       : {}),
     ...(typeof value.lastExportAt === "string"
       ? { lastExportAt: value.lastExportAt }
+      : {}),
+    ...(value.shelfStatus === "published" || value.shelfStatus === "draft"
+      ? { shelfStatus: value.shelfStatus }
       : {}),
     ...(value.archived === true ? { archived: true } : {}),
     ...(typeof value.deletedAt === "string"
@@ -433,7 +452,7 @@ function saveCloudBundle(account, input) {
     });
   const existing = db
       .prepare(
-        "SELECT cloud_revision,created_at FROM cloud_articles WHERE user_id=? AND id=?",
+        "SELECT cloud_revision,created_at,article_json FROM cloud_articles WHERE user_id=? AND id=?",
       )
       .get(account.id, article.id),
     expected = input.baseRevision;
@@ -448,6 +467,10 @@ function saveCloudBundle(account, input) {
     });
   if (!existing && expected !== undefined && Number(expected) !== 0)
     throw Object.assign(new Error("云端文章版本不存在。"), { status: 409 });
+  if (existing && !Object.hasOwn(input.article || input, "shelfStatus")) {
+    const prior = openArticle(existing.article_json).shelfStatus;
+    if (prior) article.shelfStatus = prior;
+  }
   const storedBytes = db
     .prepare(
       "SELECT COALESCE(SUM(byte_length),0) total FROM cloud_assets WHERE user_id=?",
@@ -722,6 +745,7 @@ const server = createServer(async (req, res) => {
             title: item.article.title,
             updatedAt: item.article.updatedAt,
             archived: !!item.article.archived,
+            shelfStatus: item.article.shelfStatus ?? "draft",
             deletedAt: item.article.deletedAt,
             cloudRevision: item.cloudRevision,
           })),
@@ -953,6 +977,7 @@ const server = createServer(async (req, res) => {
       return send(res, 201, { account: publicAccount(account) });
     }
     if (path === "/auth/login") {
+      requireLibraryEnabled();
       rateLimit(req, "login", 12, 15 * 60 * 1000);
       const user = db
         .prepare("SELECT * FROM users WHERE username_key=?")
@@ -987,7 +1012,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === "/auth/change-password") {
       rateLimit(req, "password", 8, 15 * 60 * 1000);
-      const account = requireAccount(row),
+      const account = requireLibraryAccount(row),
         full = db.prepare("SELECT * FROM users WHERE id=?").get(account.id),
         currentPassword = String(input.currentPassword || ""),
         nextPassword = String(input.nextPassword || "");
@@ -1003,7 +1028,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (path === "/account/tokens/list") {
-      const account = requireAccount(row);
+      const account = requireLibraryAccount(row);
       const tokens = db
         .prepare(
           "SELECT id,name,scopes,created_at,last_used_at,revoked_at FROM api_tokens WHERE user_id=? ORDER BY created_at DESC LIMIT 100",
@@ -1020,7 +1045,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { tokens });
     }
     if (path === "/account/tokens/create") {
-      const account = requireAccount(row),
+      const account = requireLibraryAccount(row),
         name =
           String(input.name || "Agent")
             .trim()
@@ -1047,7 +1072,7 @@ const server = createServer(async (req, res) => {
       return send(res, 201, { id, name, scopes, token: raw });
     }
     if (path === "/account/tokens/revoke") {
-      const account = requireAccount(row),
+      const account = requireLibraryAccount(row),
         id = String(input.tokenId || "");
       const result = db
         .prepare(
@@ -1061,7 +1086,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
     if (path === "/cloud/articles/list") {
-      const account = requireAccount(row),
+      const account = requireLibraryAccount(row),
         articles = cloudArticleRows(account.id),
         storage = db
           .prepare(
@@ -1075,15 +1100,15 @@ const server = createServer(async (req, res) => {
       });
     }
     if (path === "/cloud/articles/upsert") {
-      const account = requireAccount(row);
+      const account = requireLibraryAccount(row);
       return send(res, 200, saveCloudBundle(account, input));
     }
     if (path === "/cloud/assets/upload") {
-      const account = requireAccount(row);
+      const account = requireLibraryAccount(row);
       return send(res, 200, { asset: saveCloudAsset(account, input.asset) });
     }
     if (path === "/cloud/assets/get") {
-      const account = requireAccount(row),
+      const account = requireLibraryAccount(row),
         assetId = String(input.assetId || ""),
         asset = db
           .prepare(
@@ -1324,7 +1349,7 @@ const server = createServer(async (req, res) => {
           row,
           String(req.headers["x-workflow-id"] || ""),
         ),
-        account = accountFor(row);
+        account = requireAccount(row);
       const requestHash = String(input.requestHash || "");
       if (!/^[a-f0-9]{64}$/.test(requestHash) || !input.article)
         throw Object.assign(new Error("草稿请求缺少完整性标识。"), {
